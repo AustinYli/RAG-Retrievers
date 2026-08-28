@@ -1,0 +1,35 @@
+{
+  "run_name": "scifact_hybrid_stem_minilm_rerank",
+  "dataset": "scifact",
+  "split": "test",
+  "data_dir": "data/beir",
+  "cache_dir": "cache",
+  "results_path": "results/runs.csv",
+  "retriever": {
+    "type": "rerank",
+    "base": {
+      "type": "hybrid",
+      "dense_model": "sentence-transformers/all-MiniLM-L6-v2",
+      "index_backend": "numpy",
+      "top_k": 1000,
+      "bm25_top_k": 1000,
+      "dense_top_k": 1000,
+      "rrf_k": 60,
+      "analyzer": "word-lower-stop-porter-v1",
+      "k1": 1.2,
+      "b": 0.9,
+      "epsilon": 0.25,
+      "batch_size": 64,
+      "device": null
+    },
+    "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "rerank_top_k": 100,
+    "top_k": 1000,
+    "batch_size": 32,
+    "max_seq_length": 512,
+    "device": null
+  },
+  "metrics": {
+    "cutoffs": [1, 5, 10, 100]
+  }
+}

@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.egg-info/
+.DS_Store
+
+data/
+cache/
+results/*
+!results/.gitkeep
+!results/bm25_gate.csv
+!results/comparisons.csv
+!results/comparisons_holm.csv
+!results/runs.csv
+
+.ipynb_checkpoints/
