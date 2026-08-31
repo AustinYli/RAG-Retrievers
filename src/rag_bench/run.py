@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import platform
 import re
 import time
 from dataclasses import dataclass
@@ -24,6 +26,7 @@ class RunResult:
     run: dict[str, dict[str, float]]
     timings: dict[str, float]
     query_latencies: list[float]
+    metadata: dict[str, Any]
 
 
 def main() -> None:
@@ -103,12 +106,30 @@ def run_config(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
         "bm25_top_k": first_present(retriever_config, base_config, "bm25_top_k"),
         "dense_top_k": first_present(retriever_config, base_config, "dense_top_k"),
         "rrf_k": first_present(retriever_config, base_config, "rrf_k"),
+        "bm25_weight": first_present(retriever_config, base_config, "bm25_weight"),
+        "dense_weight": first_present(retriever_config, base_config, "dense_weight"),
         "rerank_top_k": retriever_config.get("rerank_top_k", ""),
         "bm25_analyzer": first_present(retriever_config, base_config, "analyzer"),
         "bm25_k1": first_present(retriever_config, base_config, "k1"),
         "bm25_b": first_present(retriever_config, base_config, "b"),
         "bm25_epsilon": first_present(retriever_config, base_config, "epsilon"),
         "max_seq_length": first_present(retriever_config, base_config, "max_seq_length"),
+        "normalize_embeddings": first_present(retriever_config, base_config, "normalize_embeddings"),
+        "device": run_result.metadata.get("device", first_present(retriever_config, base_config, "device")),
+        "python_version": platform.python_version(),
+        "torch_num_threads": run_result.metadata.get("torch_num_threads", ""),
+        "torch_num_interop_threads": run_result.metadata.get("torch_num_interop_threads", ""),
+        "omp_num_threads": os.environ.get("OMP_NUM_THREADS", ""),
+        "mkl_num_threads": os.environ.get("MKL_NUM_THREADS", ""),
+        "realized_depth_mean": round(run_result.metadata.get("realized_depth_mean", 0.0), 3),
+        "realized_depth_p50": round(run_result.metadata.get("realized_depth_p50", 0.0), 3),
+        "realized_depth_p95": round(run_result.metadata.get("realized_depth_p95", 0.0), 3),
+        "bm25_realized_depth_mean": round(run_result.metadata.get("bm25_realized_depth_mean", 0.0), 3)
+        if "bm25_realized_depth_mean" in run_result.metadata
+        else "",
+        "dense_realized_depth_mean": round(run_result.metadata.get("dense_realized_depth_mean", 0.0), 3)
+        if "dense_realized_depth_mean" in run_result.metadata
+        else "",
         "num_corpus_docs": len(corpus),
         "num_queries": len(queries),
         "load_seconds": round(load_seconds, 3),
@@ -156,6 +177,10 @@ def build_run(
             run=run,
             timings={"index_seconds": index_seconds, "search_seconds": search_seconds},
             query_latencies=query_latencies,
+            metadata={
+                **runtime_metadata("cpu"),
+                **depth_stats(run, prefix="realized_depth"),
+            },
         )
 
     if retriever_type == "dense":
@@ -167,6 +192,8 @@ def build_run(
             model_name=retriever_config["dense_model"],
             batch_size=int(retriever_config.get("batch_size", 64)),
             device=retriever_config.get("device"),
+            max_seq_length=optional_int(retriever_config.get("max_seq_length")),
+            normalize_embeddings=bool(retriever_config.get("normalize_embeddings", True)),
         )
         index_seconds = time.perf_counter() - index_started
         search_started = time.perf_counter()
@@ -180,6 +207,12 @@ def build_run(
             run=run,
             timings={"index_seconds": index_seconds, "search_seconds": search_seconds},
             query_latencies=query_latencies,
+            metadata={
+                **runtime_metadata(retriever.device),
+                "max_seq_length": retriever.max_seq_length,
+                "normalize_embeddings": retriever.normalize_embeddings,
+                **depth_stats(run, prefix="realized_depth"),
+            },
         )
 
     if retriever_type == "hybrid":
@@ -205,6 +238,8 @@ def build_run(
                 "batch_size": retriever_config.get("batch_size", 64),
                 "device": retriever_config.get("device"),
                 "index_backend": retriever_config.get("index_backend", "numpy"),
+                "max_seq_length": retriever_config.get("max_seq_length"),
+                "normalize_embeddings": retriever_config.get("normalize_embeddings", True),
             },
             corpus,
             queries,
@@ -218,6 +253,8 @@ def build_run(
             query_ids=list(queries.keys()),
             top_k=top_k,
             rrf_k=int(retriever_config.get("rrf_k", 60)),
+            bm25_weight=float(retriever_config.get("bm25_weight", 1.0)),
+            dense_weight=float(retriever_config.get("dense_weight", 1.0)),
         )
         combine_seconds = time.perf_counter() - combine_started
         query_latencies = combine_query_latencies(
@@ -238,6 +275,16 @@ def build_run(
                 "rrf_seconds": combine_seconds,
             },
             query_latencies=query_latencies,
+            metadata={
+                **runtime_metadata(dense_result.metadata.get("device", "")),
+                **depth_stats(run, prefix="realized_depth"),
+                "bm25_realized_depth_mean": depth_stats(bm25_result.run, prefix="bm25_realized_depth")[
+                    "bm25_realized_depth_mean"
+                ],
+                "dense_realized_depth_mean": depth_stats(dense_result.run, prefix="dense_realized_depth")[
+                    "dense_realized_depth_mean"
+                ],
+            },
         )
 
     if retriever_type == "rerank":
@@ -270,6 +317,10 @@ def build_run(
                 "rerank_seconds": rerank_seconds,
             },
             query_latencies=combine_query_latencies(base_result.query_latencies, rerank_latencies),
+            metadata={
+                **base_result.metadata,
+                **depth_stats(run, prefix="realized_depth"),
+            },
         )
 
     raise ValueError(f"Unknown retriever type: {retriever_type}")
@@ -330,6 +381,40 @@ def combine_query_latencies(*latency_lists: list[float]) -> list[float]:
     if any(len(latencies) != expected_length for latencies in non_empty):
         return []
     return [sum(latencies[index] for latencies in non_empty) for index in range(expected_length)]
+
+
+def depth_stats(run: dict[str, dict[str, float]], prefix: str) -> dict[str, float]:
+    depths = [float(len(scores)) for scores in run.values()]
+    if not depths:
+        return {
+            f"{prefix}_mean": 0.0,
+            f"{prefix}_p50": 0.0,
+            f"{prefix}_p95": 0.0,
+        }
+    return {
+        f"{prefix}_mean": sum(depths) / len(depths),
+        f"{prefix}_p50": percentile(depths, 50),
+        f"{prefix}_p95": percentile(depths, 95),
+    }
+
+
+def runtime_metadata(device: str) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"device": device}
+    try:
+        import torch
+
+        metadata["torch_num_threads"] = torch.get_num_threads()
+        metadata["torch_num_interop_threads"] = torch.get_num_interop_threads()
+    except Exception:
+        metadata["torch_num_threads"] = ""
+        metadata["torch_num_interop_threads"] = ""
+    return metadata
+
+
+def optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
 
 
 def write_artifacts(

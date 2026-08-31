@@ -125,6 +125,8 @@ class DenseRetriever:
         model_name: str,
         batch_size: int = 64,
         device: str | None = None,
+        max_seq_length: int | None = None,
+        normalize_embeddings: bool = True,
     ):
         self.view = CorpusView.from_corpus(corpus)
         self.cache_dir = Path(cache_dir) / "embeddings"
@@ -132,7 +134,12 @@ class DenseRetriever:
         self.dataset = dataset
         self.model_name = model_name
         self.batch_size = batch_size
+        self.normalize_embeddings = normalize_embeddings
         self.model = SentenceTransformer(model_name, device=device)
+        if max_seq_length is not None:
+            self.model.max_seq_length = int(max_seq_length)
+        self.max_seq_length = int(getattr(self.model, "max_seq_length", 0) or 0)
+        self.device = str(getattr(self.model, "device", device or ""))
         self.doc_embeddings = self._load_or_encode_docs()
         self.index: faiss.IndexFlatIP | None = None
 
@@ -149,7 +156,7 @@ class DenseRetriever:
             batch_size=self.batch_size,
             show_progress_bar=True,
             convert_to_numpy=True,
-            normalize_embeddings=True,
+            normalize_embeddings=self.normalize_embeddings,
         ).astype("float32")
 
         safe_top_k = min(top_k, len(self.view.doc_ids))
@@ -189,7 +196,7 @@ class DenseRetriever:
                 batch_size=1,
                 show_progress_bar=False,
                 convert_to_numpy=True,
-                normalize_embeddings=True,
+                normalize_embeddings=self.normalize_embeddings,
             ).astype("float32")
             if index_backend == "faiss":
                 if self.index is None:
@@ -210,7 +217,11 @@ class DenseRetriever:
 
     def _load_or_encode_docs(self) -> np.ndarray:
         fingerprint = corpus_fingerprint(self.view.doc_ids, self.view.texts)
-        cache_path = self.cache_dir / f"{self.dataset}_{_model_slug(self.model_name)}_{len(self.view.doc_ids)}_{fingerprint}.npy"
+        params = f"seq={self.max_seq_length}_normalize={self.normalize_embeddings}"
+        cache_path = (
+            self.cache_dir
+            / f"{self.dataset}_{_model_slug(self.model_name)}_{len(self.view.doc_ids)}_{fingerprint}_{_slug(params)}.npy"
+        )
         if cache_path.exists():
             return np.load(cache_path).astype("float32")
 
@@ -220,7 +231,7 @@ class DenseRetriever:
             batch_size=self.batch_size,
             show_progress_bar=True,
             convert_to_numpy=True,
-            normalize_embeddings=True,
+            normalize_embeddings=self.normalize_embeddings,
         ).astype("float32")
         np.save(cache_path, embeddings)
         return embeddings
@@ -256,9 +267,19 @@ def hybrid_rrf(
     dense_runs: dict[str, dict[str, float]],
     top_k: int,
     rrf_k: int = 60,
+    bm25_weight: float = 1.0,
+    dense_weight: float = 1.0,
 ) -> dict[str, dict[str, float]]:
     query_ids = sorted(set(bm25_runs) | set(dense_runs))
-    combined, _ = hybrid_rrf_with_latencies(bm25_runs, dense_runs, query_ids, top_k, rrf_k)
+    combined, _ = hybrid_rrf_with_latencies(
+        bm25_runs,
+        dense_runs,
+        query_ids,
+        top_k,
+        rrf_k,
+        bm25_weight=bm25_weight,
+        dense_weight=dense_weight,
+    )
     return combined
 
 
@@ -268,6 +289,8 @@ def hybrid_rrf_with_latencies(
     query_ids: list[str],
     top_k: int,
     rrf_k: int = 60,
+    bm25_weight: float = 1.0,
+    dense_weight: float = 1.0,
 ) -> tuple[dict[str, dict[str, float]], list[float]]:
     import time
 
@@ -276,10 +299,13 @@ def hybrid_rrf_with_latencies(
     for query_id in query_ids:
         started = time.perf_counter()
         scores: dict[str, float] = {}
-        for run in (bm25_runs.get(query_id, {}), dense_runs.get(query_id, {})):
+        for run, weight in (
+            (bm25_runs.get(query_id, {}), bm25_weight),
+            (dense_runs.get(query_id, {}), dense_weight),
+        ):
             ranked = sorted(run.items(), key=lambda item: (-item[1], item[0]))
             for rank, (doc_id, _) in enumerate(ranked, start=1):
-                scores[doc_id] = scores.get(doc_id, 0.0) + 1.0 / (rrf_k + rank)
+                scores[doc_id] = scores.get(doc_id, 0.0) + weight / (rrf_k + rank)
         combined[query_id] = dict(
             sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:top_k]
         )

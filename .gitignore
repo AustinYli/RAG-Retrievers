@@ -13,5 +13,10 @@ results/*
 !results/comparisons.csv
 !results/comparisons_holm.csv
 !results/runs.csv
+!results/track_a_runs.csv
+!results/fusion_sweeps.csv
+!results/rerank_sweeps.csv
+!results/track_a_comparisons.csv
+!results/track_a_comparisons_holm.csv
 
 .ipynb_checkpoints/
