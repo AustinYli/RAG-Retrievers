@@ -109,10 +109,10 @@ def model_label(row: dict[str, str]) -> str:
 def dedupe_comparisons(
     comparisons: list[tuple[str, dict[str, str], dict[str, str]]],
 ) -> list[tuple[str, dict[str, str], dict[str, str]]]:
-    seen: set[tuple[str, str, str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     unique: list[tuple[str, dict[str, str], dict[str, str]]] = []
     for name, baseline, candidate in comparisons:
-        key = (name, baseline["dataset"], baseline["run_id"], candidate["run_id"])
+        key = (baseline["dataset"], baseline["run_id"], candidate["run_id"])
         if key in seen:
             continue
         seen.add(key)
@@ -125,7 +125,7 @@ def write_rows(path: Path, rows: list[dict[str, Any]]) -> None:
     for row in rows:
         fieldnames.extend(field for field in row if field not in fieldnames)
     with path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer = csv.DictWriter(file, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

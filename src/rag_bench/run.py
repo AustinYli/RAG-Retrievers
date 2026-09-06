@@ -345,7 +345,7 @@ def append_result(results_path: Path, row: dict[str, Any]) -> None:
         fieldnames = old_fieldnames + [field for field in fieldnames if field not in old_fieldnames]
 
     with results_path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer = csv.DictWriter(file, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for existing_row in existing_rows:
             writer.writerow(existing_row)
@@ -449,7 +449,7 @@ def write_artifacts(
 
     metric_fields = sorted({metric for metrics in per_query.values() for metric in metrics})
     with per_query_path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=["query_id", *metric_fields])
+        writer = csv.DictWriter(file, fieldnames=["query_id", *metric_fields], lineterminator="\n")
         writer.writeheader()
         for query_id in sorted(per_query):
             writer.writerow({"query_id": query_id, **per_query[query_id]})

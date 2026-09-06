@@ -119,7 +119,7 @@ def append_comparison(output_path: Path, row: dict[str, Any]) -> None:
         fieldnames = old_fieldnames + [field for field in fieldnames if field not in old_fieldnames]
 
     with output_path.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer = csv.DictWriter(file, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(existing_rows)
         writer.writerow(row)

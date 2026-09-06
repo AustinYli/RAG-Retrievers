@@ -35,7 +35,7 @@ def test_evaluate_missing_run_counts_as_zero():
     assert metrics["map@10"] == 0.0
 
 
-def test_ndcg_matches_pytrec_eval():
+def test_ranked_metrics_match_pytrec_eval():
     import pytrec_eval
 
     qrels = {
@@ -47,8 +47,14 @@ def test_ndcg_matches_pytrec_eval():
         "q2": {"d3": 1.0},
     }
 
-    ours = evaluate(qrels, runs, cutoffs=[10])["ndcg@10"]
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {"ndcg_cut.10"})
-    theirs = sum(row["ndcg_cut_10"] for row in evaluator.evaluate(runs).values()) / len(qrels)
+    ours = evaluate(qrels, runs, cutoffs=[10])
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {"ndcg_cut.10", "map_cut.10", "recall.10"})
+    theirs = evaluator.evaluate(runs)
+    expected = {
+        "ndcg@10": sum(row["ndcg_cut_10"] for row in theirs.values()) / len(qrels),
+        "map@10": sum(row["map_cut_10"] for row in theirs.values()) / len(qrels),
+        "recall@10": sum(row["recall_10"] for row in theirs.values()) / len(qrels),
+    }
 
-    assert round(ours, 12) == round(theirs, 12)
+    for metric, expected_value in expected.items():
+        assert round(ours[metric], 12) == round(expected_value, 12)

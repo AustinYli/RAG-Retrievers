@@ -17,6 +17,7 @@ dependencies = [
   "scipy",
   "tqdm",
   "pyyaml",
+  "pytrec_eval",
   "pytest",
 ]
 

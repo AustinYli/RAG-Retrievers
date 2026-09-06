@@ -18,5 +18,10 @@ results/*
 !results/rerank_sweeps.csv
 !results/track_a_comparisons.csv
 !results/track_a_comparisons_holm.csv
+!results/fusion_winner_comparisons.csv
+!results/fusion_winner_comparisons_holm.csv
+!results/rerank_bge_probe.csv
+!results/rerank_bge_probe_comparisons.csv
+!results/rerank_bge_probe_comparisons_holm.csv
 
 .ipynb_checkpoints/
