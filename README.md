@@ -1,6 +1,6 @@
 # RAG Benchmark Harness
 
-This repo implements Track A from the project brief: repeatable BEIR retrieval benchmarks for BM25, exact dense retrieval, hybrid RRF, and optional cross-encoder reranking.
+This repo implements repeatable retrieval and RAG evaluation. Track A benchmarks BM25, exact dense retrieval, hybrid RRF, and cross-encoder reranking on BEIR. Track B adds evidence retrieval, local answer generation, faithfulness, and abstention evaluation on MultiHop-RAG.
 
 The fixed grid is in `results/track_a_runs.csv`. See [RESULTS.md](RESULTS.md) for the findings, statistical qualifications, and decision log.
 
@@ -144,3 +144,136 @@ To repeat that check over every persisted Track A ranking:
 ```bash
 python scripts/check_metrics_pytrec_eval.py
 ```
+
+## Track B: MultiHop-RAG
+
+Download and audit the public files directly from their authoritative Hugging Face repository. The data stays under ignored `data/`; the computed audit is tracked:
+
+```bash
+python scripts/inspect_multihop_rag.py
+```
+
+Run Stage 1 in dependency order. The runner checkpoints the expensive reranker under `cache/` and resumes it after interruption:
+
+```bash
+python scripts/run_track_b_stage1.py --stage bm25
+python scripts/run_track_b_stage1.py --stage dense
+python scripts/run_track_b_stage1.py --stage rerank --rerank-batch-size 16
+python scripts/compare_track_b_stage1.py --samples 10000
+python scripts/check_track_b_evidence_metrics.py
+python scripts/analyze_track_b_retrieval.py
+```
+
+The corpus contains full news articles, so Track B uses deterministic 256-word chunks with 64-word overlap and indexes `title`, `source`, and `published_at` alongside every chunk. It reports both source-document recall and stricter evidence-fact recall; `context_sufficiency@k` is one only when every annotated fact is present in the selected chunks. This is complete gold-evidence coverage, not an unconditional accuracy ceiling, because annotations may not enumerate every usable support path.
+
+Install the pinned local generator and run the oracle-context gate before any retrieved-context generation:
+
+```bash
+ollama pull qwen2.5:7b-instruct-q4_K_M
+python scripts/run_track_b_generation.py --mode oracle --max-queries 20
+```
+
+Once the full oracle gate passes, run three repeats on the frozen 20-question
+development slice for the determinism check, then vary only the retrieval run:
+
+```bash
+python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 1
+python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 2
+python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 3
+
+python scripts/analyze_track_b_determinism.py \
+  results/track_b_smoke_generation_artifacts/<repeat-1>.jsonl \
+  results/track_b_smoke_generation_artifacts/<repeat-2>.jsonl \
+  results/track_b_smoke_generation_artifacts/<repeat-3>.jsonl \
+  --output results/track_b_determinism.json
+
+python scripts/run_track_b_generation.py \
+  --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64
+```
+
+The first 20 answerable questions are a frozen prompt-development slice because their raw outputs were inspected while fixing the response contract. Full generation runs exclude those IDs from their artifacts and record both the ID-set hash and evaluation-partition version; headline generation metrics therefore use 2,235 held-out answerable questions.
+
+The completed held-out oracle gate is 0.7955 EM and 0.8034 token F1. Three temperature-zero repeats on the frozen development slice produced identical predictions (0.000 EM/F1 range), so no run averaging is required by the measured determinism gate. Oracle p50/p95 latency is 1.812/2.606 seconds per sequential local request. The summary flags and excludes 45 impossible Ollama component-duration ledgers while retaining every well-formed total request duration.
+
+After generating with BM25, dense, and dense plus reranker, compare the exact
+generation run names as one Holm-corrected family:
+
+```bash
+python scripts/compare_track_b_generation.py \
+  --ordered-run-names <bm25-generation-run>,<dense-generation-run>,<reranker-generation-run>
+
+python scripts/analyze_track_b_generation.py \
+  --generation-artifact results/track_b_generation_artifacts/<run>.jsonl \
+  --output results/track_b_failure_attribution.json
+```
+
+Position sensitivity uses three runs over the same retriever and fixed chunk set,
+followed by one six-test Holm family:
+
+```bash
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name <retriever> --evidence-position first \
+  --evaluation-sample-size 300
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name <retriever> --evidence-position middle \
+  --evaluation-sample-size 300
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name <retriever> --evidence-position last \
+  --evaluation-sample-size 300
+python scripts/compare_track_b_positions.py \
+  --ordered-run-names <first-run>,<middle-run>,<last-run>
+```
+
+The abstention intervention requires matched retrieved runs with the instruction
+off and on. Its analyzer verifies that the saved prompt templates differ only by
+the frozen instruction, then jointly corrects the null-abstention and answerable
+false-abstention tests. Use the same frozen 300-query hash sample for both runs:
+
+```bash
+python scripts/compare_track_b_abstention.py \
+  --off-run-name <instruction-off-run> --on-run-name <instruction-on-run>
+```
+
+`--evaluation-sample-size` is reserved for secondary experiments, uses a
+versioned SHA-256 sampler, and records the seed and selected-ID hash. The full E1
+retriever comparison does not use it.
+
+Generation artifacts include the exact rendered context and its hash, answer, prompt hash, context-builder and response-parser versions, upstream retrieval artifact hash, model tag and digest, quantization, runtime, seed, temperature, context window, 96-token output cap, EM/F1, and abstention decision. The NLI scorer emits a threshold sensitivity curve and accepts a hand-labeled calibration CSV:
+
+```bash
+python scripts/score_track_b_faithfulness.py \
+  --generation-artifact results/track_b_generation_artifacts/<run>.jsonl \
+  --summary-output results/track_b_faithfulness_summary.json
+
+python scripts/sample_faithfulness_calibration.py \
+  --claim-artifact results/track_b_generation_artifacts/<run>.claims.jsonl
+```
+
+The calibration CSV deliberately omits the NLI score and includes the question,
+claim, and full context needed to assign each `human_supported` label. Do not
+quote a headline faithfulness rate until those 50 labels and Cohen's kappa are
+present.
+
+Retrieved generation defaults to five 256-word chunks and a strict 1,280-word rendered-context budget that includes block labels and retrieval metadata. Body words are allocated across the fixed chunk set independently of display order. For chunking experiments, raise `--retrieved-top-k` while keeping `--max-context-words 1280`; for position sensitivity, repeat the same run with `--evidence-position first`, `middle`, and `last`.
+
+E5 supports fixed, paragraph-structural, and BGE-based semantic segmentation. Non-fixed strategies require zero overlap; semantic boundaries are persisted and hash-verified. Run each retrieval configuration first, then use rank-order greedy packing so all four variants consume the same total rendered-context budget:
+
+```bash
+python scripts/run_track_b_stage1.py --stage bm25 --overlap-words 0
+python scripts/run_track_b_stage1.py --stage bm25 \
+  --chunking-strategy structural --overlap-words 0
+python scripts/run_track_b_stage1.py --stage bm25 \
+  --chunking-strategy semantic --overlap-words 0
+
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name <chunking-run> --retrieved-top-k 100 \
+  --context-packing greedy --max-context-words 1280 \
+  --evaluation-sample-size 300
+
+python scripts/compare_track_b_chunking.py \
+  --baseline-run-name <fixed-overlap-generation-run> \
+  --candidate-run-names <no-overlap-run>,<structural-run>,<semantic-run>
+```
+
+See [TRACK_B.md](TRACK_B.md) for metric definitions, gates, and current findings.

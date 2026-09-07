@@ -1,0 +1,30 @@
+{
+  "artifacts": [
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_6236e59e68896108_r1.jsonl",
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_312ac51d67689e15_r2.jsonl",
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_8afb32a04bf79609_r3.jsonl"
+  ],
+  "exact_match_by_run": [
+    0.85,
+    0.85,
+    0.85
+  ],
+  "exact_match_mean": 0.85,
+  "exact_match_population_stddev": 0.0,
+  "exact_match_range": 0.0,
+  "exact_prediction_agreement_rate": 1,
+  "metadata_artifacts": [
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_6236e59e68896108_r1.metadata.json",
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_312ac51d67689e15_r2.metadata.json",
+    "results/track_b_smoke_generation_artifacts/multihop_oracle_oracle_8afb32a04bf79609_r3.metadata.json"
+  ],
+  "num_queries": 20,
+  "token_f1_by_run": [
+    0.8833333333333333,
+    0.8833333333333333,
+    0.8833333333333333
+  ],
+  "token_f1_mean": 0.8833333333333333,
+  "token_f1_population_stddev": 0.0,
+  "token_f1_range": 0.0
+}

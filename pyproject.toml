@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rag-bench"
 version = "0.1.0"
-description = "Small BEIR RAG/retrieval benchmarking harness."
+description = "Reproducible retrieval and grounded-generation benchmarking harness."
 requires-python = ">=3.10"
 dependencies = [
   "beir",

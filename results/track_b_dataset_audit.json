@@ -1,0 +1,50 @@
+{
+  "all_evidence_facts_found_in_source_articles": true,
+  "all_evidence_urls_resolved": true,
+  "answerable_queries_naming_all_evidence_sources": 2091,
+  "answerable_queries_naming_any_evidence_source": 2242,
+  "answerable_query_count": 2255,
+  "article_words_max": 12387,
+  "article_words_mean": 1746.008210180624,
+  "article_words_median": 1298,
+  "article_words_min": 839,
+  "chunk_count": 5636,
+  "chunk_unit": "whitespace_word",
+  "chunk_words": 256,
+  "chunks_per_document_mean": 9.254515599343186,
+  "corpus_document_count": 609,
+  "corpus_granularity": "full_news_articles",
+  "corpus_sha256": "20b61b5ab84de84a927420c5d265b7ec8d859ae49980699958a787ade9e4d28f",
+  "evidence_annotation_count": 6084,
+  "evidence_annotations_covered_by_some_chunk": 6084,
+  "evidence_annotations_per_answerable_distribution": {
+    "2": 1079,
+    "3": 778,
+    "4": 398
+  },
+  "indexed_metadata": [
+    "title",
+    "source",
+    "published_at"
+  ],
+  "mean_evidence_annotations_all_queries": 2.380281690140845,
+  "mean_evidence_annotations_answerable": 2.6980044345898007,
+  "mean_unique_evidence_documents_all_queries": 2.3114241001564944,
+  "mean_unique_evidence_documents_answerable": 2.6199556541019957,
+  "null_query_count": 301,
+  "overlap_words": 64,
+  "queries_sha256": "03cfb4926461f868684903aadc8024447bdda5bb3f6804741424cce338515bff",
+  "queries_with_repeated_evidence_document": 168,
+  "question_count": 2556,
+  "question_type_counts": {
+    "comparison_query": 856,
+    "inference_query": 816,
+    "null_query": 301,
+    "temporal_query": 583
+  },
+  "unique_evidence_documents_per_answerable_distribution": {
+    "2": 1169,
+    "3": 774,
+    "4": 312
+  }
+}

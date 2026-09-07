@@ -1,0 +1,27 @@
+{
+  "checked_metric": "Hits@10 / evidence_hit@10",
+  "reference_evaluator": "https://github.com/yixuantt/MultiHop-RAG/blob/main/retrieval_evaluate.py",
+  "runs": [
+    {
+      "absolute_difference": 2.0399113076496889e-07,
+      "harness_evidence_hit@10": 0.911308,
+      "official_style_hit@10": 0.911308,
+      "run_id": "20260907T091354Z_multihop_bm25_stem_w256_o64_e65a6217",
+      "run_name": "multihop_bm25_stem_w256_o64"
+    },
+    {
+      "absolute_difference": 4.7228381372388384e-07,
+      "harness_evidence_hit@10": 0.761863,
+      "official_style_hit@10": 0.761863,
+      "run_id": "20260907T091638Z_multihop_dense_bge_w256_o64_d2bc7b5a",
+      "run_name": "multihop_dense_bge_w256_o64"
+    },
+    {
+      "absolute_difference": 4.878048780465605e-07,
+      "harness_evidence_hit@10": 0.84878,
+      "official_style_hit@10": 0.84878,
+      "run_id": "20260907T191203Z_multihop_dense_bge_rerank20_w256_o64_38b0fba6",
+      "run_name": "multihop_dense_bge_rerank20_w256_o64"
+    }
+  ]
+}

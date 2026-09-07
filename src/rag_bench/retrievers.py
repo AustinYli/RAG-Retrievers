@@ -125,6 +125,7 @@ class DenseRetriever:
         model_name: str,
         batch_size: int = 64,
         device: str | None = None,
+        revision: str | None = None,
         max_seq_length: int | None = None,
         normalize_embeddings: bool = True,
     ):
@@ -133,9 +134,10 @@ class DenseRetriever:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.dataset = dataset
         self.model_name = model_name
+        self.model_revision = revision or ""
         self.batch_size = batch_size
         self.normalize_embeddings = normalize_embeddings
-        self.model = SentenceTransformer(model_name, device=device)
+        self.model = SentenceTransformer(model_name, device=device, revision=revision)
         if max_seq_length is not None:
             self.model.max_seq_length = int(max_seq_length)
         self.max_seq_length = int(getattr(self.model, "max_seq_length", 0) or 0)
@@ -218,6 +220,8 @@ class DenseRetriever:
     def _load_or_encode_docs(self) -> np.ndarray:
         fingerprint = corpus_fingerprint(self.view.doc_ids, self.view.texts)
         params = f"seq={self.max_seq_length}_normalize={self.normalize_embeddings}"
+        if self.model_revision:
+            params += f"_revision={self.model_revision}"
         cache_path = (
             self.cache_dir
             / f"{self.dataset}_{_model_slug(self.model_name)}_{len(self.view.doc_ids)}_{fingerprint}_{_slug(params)}.npy"

@@ -31,5 +31,27 @@ results/*
 !results/gap_law_summary.json
 !results/bge_model_card_crosscheck.csv
 !results/pytrec_eval_crosscheck.csv
+!results/track_b_dataset_audit.json
+!results/track_b_evidence_metric_crosscheck.json
+!results/track_b_stage1.csv
+!results/track_b_stage1_by_type.csv
+!results/track_b_stage1_comparisons.csv
+!results/track_b_stage1_comparisons_holm.csv
+!results/track_b_generation_runs.csv
+!results/track_b_generation_comparisons.csv
+!results/track_b_generation_comparisons_holm.csv
+!results/track_b_abstention_comparisons.csv
+!results/track_b_abstention_comparisons_holm.csv
+!results/track_b_position_comparisons.csv
+!results/track_b_position_comparisons_holm.csv
+!results/track_b_chunking_runs.csv
+!results/track_b_chunking_comparisons.csv
+!results/track_b_chunking_comparisons_holm.csv
+!results/track_b_determinism.json
+!results/track_b_failure_attribution.json
+!results/track_b_failure_attribution_*.json
+!results/track_b_faithfulness_summary.json
+!results/track_b_faithfulness_*.json
+!results/track_b_faithfulness_calibration.csv
 
 .ipynb_checkpoints/

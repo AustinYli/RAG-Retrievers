@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from rag_bench.compare import compare
+import pytest
+
+from rag_bench.compare import compare, compare_metric_values
 from rag_bench.stats import metric_delta
 
 
@@ -28,3 +30,10 @@ def test_metric_delta_rejects_missing_query_ids():
         pass
     else:
         raise AssertionError("metric_delta should reject missing paired query IDs")
+
+
+def test_compare_metric_values_rejects_empty_or_mismatched_pairs():
+    with pytest.raises(ValueError, match="at least one query"):
+        compare_metric_values({}, {}, metric="exact_match")
+    with pytest.raises(ValueError, match="identical query IDs"):
+        compare_metric_values({"q1": 1.0}, {"q2": 1.0}, metric="exact_match")

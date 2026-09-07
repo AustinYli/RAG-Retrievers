@@ -6,7 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from rag_bench.stats import metric_delta, paired_bootstrap_ci, paired_bootstrap_scores
+import numpy as np
+
+from rag_bench.stats import metric_delta, paired_bootstrap_scores
 
 
 def main() -> None:
@@ -49,6 +51,31 @@ def compare(
 ) -> dict[str, Any]:
     baseline = read_per_query_metric(baseline_path, metric)
     candidate = read_per_query_metric(candidate_path, metric)
+    result = compare_metric_values(
+        baseline=baseline,
+        candidate=candidate,
+        metric=metric,
+        samples=samples,
+        confidence=confidence,
+        seed=seed,
+    )
+    return {
+        "baseline_path": str(baseline_path),
+        "candidate_path": str(candidate_path),
+        "baseline_run_id": baseline_run_id or run_id_from_artifact_path(baseline_path),
+        "candidate_run_id": candidate_run_id or run_id_from_artifact_path(candidate_path),
+        **result,
+    }
+
+
+def compare_metric_values(
+    baseline: dict[str, float],
+    candidate: dict[str, float],
+    metric: str,
+    samples: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 13,
+) -> dict[str, Any]:
     if set(baseline) != set(candidate):
         missing_from_baseline = sorted(set(candidate) - set(baseline))
         missing_from_candidate = sorted(set(baseline) - set(candidate))
@@ -57,34 +84,28 @@ def compare(
             f"missing_from_baseline={missing_from_baseline[:5]}, "
             f"missing_from_candidate={missing_from_candidate[:5]}"
         )
+    if not baseline:
+        raise ValueError("Paired comparison requires at least one query.")
     query_ids = sorted(baseline)
 
     def scorer(sampled_query_ids: list[str]) -> float:
         return metric_delta(baseline, candidate, sampled_query_ids)
 
-    ci_low, ci_high = paired_bootstrap_ci(
-        query_ids=query_ids,
-        scorer=scorer,
-        samples=samples,
-        confidence=confidence,
-        seed=seed,
-    )
     bootstrap_scores = paired_bootstrap_scores(
         query_ids=query_ids,
         scorer=scorer,
         samples=samples,
         seed=seed,
     )
+    alpha = (1.0 - confidence) / 2.0
+    ci_low = float(np.quantile(bootstrap_scores, alpha))
+    ci_high = float(np.quantile(bootstrap_scores, 1.0 - alpha))
     baseline_mean = sum(baseline[query_id] for query_id in query_ids) / len(query_ids)
     candidate_mean = sum(candidate[query_id] for query_id in query_ids) / len(query_ids)
     delta = candidate_mean - baseline_mean
     p_two_sided = bootstrap_two_sided_p_value(bootstrap_scores, delta)
 
     return {
-        "baseline_path": str(baseline_path),
-        "candidate_path": str(candidate_path),
-        "baseline_run_id": baseline_run_id or run_id_from_artifact_path(baseline_path),
-        "candidate_run_id": candidate_run_id or run_id_from_artifact_path(candidate_path),
         "metric": metric,
         "num_queries": len(query_ids),
         "baseline_mean": round(baseline_mean, 6),
