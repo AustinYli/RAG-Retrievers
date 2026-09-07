@@ -37,6 +37,9 @@ results/*
 !results/track_b_stage1_by_type.csv
 !results/track_b_stage1_comparisons.csv
 !results/track_b_stage1_comparisons_holm.csv
+!results/track_b_hybrid_comparisons.csv
+!results/track_b_hybrid_comparisons_holm.csv
+!results/track_b_gap_prediction.json
 !results/track_b_generation_runs.csv
 !results/track_b_generation_comparisons.csv
 !results/track_b_generation_comparisons_holm.csv

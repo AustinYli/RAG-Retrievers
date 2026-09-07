@@ -158,6 +158,7 @@ Run Stage 1 in dependency order. The runner checkpoints the expensive reranker u
 ```bash
 python scripts/run_track_b_stage1.py --stage bm25
 python scripts/run_track_b_stage1.py --stage dense
+python scripts/run_track_b_stage1.py --stage hybrid
 python scripts/run_track_b_stage1.py --stage rerank --rerank-batch-size 16
 python scripts/compare_track_b_stage1.py --samples 10000
 python scripts/check_track_b_evidence_metrics.py

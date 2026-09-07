@@ -23,7 +23,11 @@ from rag_bench.multihop import (
     mean_metrics,
 )
 from rag_bench.rerank import _build_reranked_run
-from rag_bench.retrievers import BM25Retriever, DenseRetriever
+from rag_bench.retrievers import (
+    BM25Retriever,
+    DenseRetriever,
+    hybrid_rrf_with_latencies,
+)
 from rag_bench.run import percentile, runtime_metadata, write_artifacts
 
 
@@ -38,13 +42,20 @@ DENSE_REVISION = "a5beb1e3e68b9ab74eb54cfd186867f64f240e1a"
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 RERANKER_REVISION = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
 CUTOFFS = [1, 3, 5, 10, 20]
+FROZEN_RRF_K = 60
+FROZEN_BM25_WEIGHT = 1.0
+FROZEN_DENSE_WEIGHT = 1.0
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Track B Stage 1 evidence retrieval on MultiHop-RAG."
     )
-    parser.add_argument("--stage", choices=["all", "bm25", "dense", "rerank"], default="all")
+    parser.add_argument(
+        "--stage",
+        choices=["all", "bm25", "dense", "hybrid", "rerank"],
+        default="all",
+    )
     parser.add_argument("--data-dir", default="data/multihop_rag")
     parser.add_argument("--cache-dir", default="cache")
     parser.add_argument("--results", default="results/track_b_stage1.csv")
@@ -163,7 +174,11 @@ def main() -> None:
     rows = latest_rows(output_path)
     runs: dict[str, dict[str, dict[str, float]]] = {}
 
-    stages = ["bm25", "dense", "rerank"] if args.stage == "all" else [args.stage]
+    stages = (
+        ["bm25", "dense", "hybrid", "rerank"]
+        if args.stage == "all"
+        else [args.stage]
+    )
     for stage in stages:
         run_name = make_run_name(stage, args)
         prior = rows.get(run_name)
@@ -182,6 +197,8 @@ def main() -> None:
         config.update(dataset.source_hashes)
         checkpoint_path: Path | None = None
         base_row: dict[str, str] | None = None
+        bm25_base_row: dict[str, str] | None = None
+        dense_base_row: dict[str, str] | None = None
         started = time.perf_counter()
         if stage == "bm25":
             model_started = time.perf_counter()
@@ -220,6 +237,43 @@ def main() -> None:
             )
             search_seconds = time.perf_counter() - search_started
             device = retriever.device
+        elif stage == "hybrid":
+            bm25_run_name = make_run_name("bm25", args)
+            dense_run_name = make_run_name("dense", args)
+            bm25_base_row = rows.get(bm25_run_name)
+            dense_base_row = rows.get(dense_run_name)
+            if bm25_base_row is None or dense_base_row is None:
+                raise ValueError(
+                    "Hybrid requires completed BM25 and dense rows for the same "
+                    "segmentation. Run those stages first."
+                )
+            bm25_path = Path(bm25_base_row["run_artifact_path"])
+            dense_path = Path(dense_base_row["run_artifact_path"])
+            config.update(
+                {
+                    "bm25_base_run_id": bm25_base_row["run_id"],
+                    "bm25_base_config_sha256": bm25_base_row["config_sha256"],
+                    "bm25_base_run_artifact_sha256": file_sha256(bm25_path),
+                    "dense_base_run_id": dense_base_row["run_id"],
+                    "dense_base_config_sha256": dense_base_row["config_sha256"],
+                    "dense_base_run_artifact_sha256": file_sha256(dense_path),
+                }
+            )
+            bm25_run = runs.get("bm25") or read_run(bm25_path)
+            dense_run = runs.get("dense") or read_run(dense_path)
+            model_load_seconds = 0.0
+            search_started = time.perf_counter()
+            run, latencies = hybrid_rrf_with_latencies(
+                bm25_runs=bm25_run,
+                dense_runs=dense_run,
+                query_ids=list(dataset.queries),
+                top_k=args.retrieval_top_k,
+                rrf_k=FROZEN_RRF_K,
+                bm25_weight=FROZEN_BM25_WEIGHT,
+                dense_weight=FROZEN_DENSE_WEIGHT,
+            )
+            search_seconds = time.perf_counter() - search_started
+            device = "cpu"
         else:
             dense_run_name = make_run_name("dense", args)
             base_row = rows.get(dense_run_name)
@@ -322,16 +376,24 @@ def main() -> None:
             "realized_depth_p95": round(percentile(realized_depths, 95), 3),
             "realized_depth_max": max(realized_depths),
             "rerank_top_k": args.rerank_top_k if stage == "rerank" else "",
-            "dense_batch_size": args.batch_size if stage in {"dense", "rerank"} else "",
+            "dense_batch_size": (
+                args.batch_size if stage in {"dense", "hybrid", "rerank"} else ""
+            ),
             "rerank_batch_size": args.rerank_batch_size if stage == "rerank" else "",
             "rerank_query_group_size": (
                 args.rerank_query_group_size if stage == "rerank" else ""
             ),
-            "bm25_analyzer": BM25_CONFIG["analyzer"] if stage == "bm25" else "",
-            "bm25_k1": BM25_CONFIG["k1"] if stage == "bm25" else "",
-            "bm25_b": BM25_CONFIG["b"] if stage == "bm25" else "",
-            "dense_model": DENSE_MODEL if stage in {"dense", "rerank"} else "",
-            "dense_revision": DENSE_REVISION if stage in {"dense", "rerank"} else "",
+            "bm25_analyzer": (
+                BM25_CONFIG["analyzer"] if stage in {"bm25", "hybrid"} else ""
+            ),
+            "bm25_k1": BM25_CONFIG["k1"] if stage in {"bm25", "hybrid"} else "",
+            "bm25_b": BM25_CONFIG["b"] if stage in {"bm25", "hybrid"} else "",
+            "dense_model": (
+                DENSE_MODEL if stage in {"dense", "hybrid", "rerank"} else ""
+            ),
+            "dense_revision": (
+                DENSE_REVISION if stage in {"dense", "hybrid", "rerank"} else ""
+            ),
             "reranker_model": RERANKER_MODEL if stage == "rerank" else "",
             "reranker_revision": RERANKER_REVISION if stage == "rerank" else "",
             "trust_remote_code": stage == "rerank",
@@ -341,9 +403,34 @@ def main() -> None:
             "base_run_artifact_sha256": (
                 config["base_run_artifact_sha256"] if base_row else ""
             ),
-            "max_seq_length": args.max_seq_length if stage in {"dense", "rerank"} else "",
-            "normalize_embeddings": stage in {"dense", "rerank"},
-            "index_backend": "numpy_exact" if stage in {"dense", "rerank"} else "bm25_exact",
+            "bm25_base_run_id": bm25_base_row["run_id"] if bm25_base_row else "",
+            "bm25_base_config_sha256": (
+                bm25_base_row["config_sha256"] if bm25_base_row else ""
+            ),
+            "bm25_base_run_artifact_sha256": (
+                config["bm25_base_run_artifact_sha256"] if bm25_base_row else ""
+            ),
+            "dense_base_run_id": dense_base_row["run_id"] if dense_base_row else "",
+            "dense_base_config_sha256": (
+                dense_base_row["config_sha256"] if dense_base_row else ""
+            ),
+            "dense_base_run_artifact_sha256": (
+                config["dense_base_run_artifact_sha256"] if dense_base_row else ""
+            ),
+            "rrf_k": FROZEN_RRF_K if stage == "hybrid" else "",
+            "bm25_weight": FROZEN_BM25_WEIGHT if stage == "hybrid" else "",
+            "dense_weight": FROZEN_DENSE_WEIGHT if stage == "hybrid" else "",
+            "max_seq_length": (
+                args.max_seq_length if stage in {"dense", "hybrid", "rerank"} else ""
+            ),
+            "normalize_embeddings": stage in {"dense", "hybrid", "rerank"},
+            "index_backend": (
+                "saved_bm25+dense_numpy_exact+rrf"
+                if stage == "hybrid"
+                else "numpy_exact"
+                if stage in {"dense", "rerank"}
+                else "bm25_exact"
+            ),
             "device": device,
             "model_load_or_index_seconds": round(model_load_seconds, 3),
             "search_seconds": round(search_seconds, 3),
@@ -354,6 +441,8 @@ def main() -> None:
             "latency_method": (
                 "checkpointed_cross_query_batch_amortized"
                 if stage == "rerank"
+                else "saved_run_fusion_only_not_end_to_end"
+                if stage == "hybrid"
                 else "single_query_sequential_warm_model"
             ),
             "queries_sha256": dataset.source_hashes["queries_sha256"],
@@ -416,6 +505,15 @@ def stage_config(stage: str, args: argparse.Namespace) -> dict[str, Any]:
                 "index_backend": "numpy_exact",
             }
         )
+    if stage == "hybrid":
+        config.update(
+            {
+                **BM25_CONFIG,
+                "rrf_k": FROZEN_RRF_K,
+                "bm25_weight": FROZEN_BM25_WEIGHT,
+                "dense_weight": FROZEN_DENSE_WEIGHT,
+            }
+        )
     if stage == "rerank":
         config.update(
             {
@@ -437,6 +535,7 @@ def make_run_name(stage: str, args: argparse.Namespace) -> str:
     names = {
         "bm25": f"{prefix}multihop_bm25_stem_{suffix}",
         "dense": f"{prefix}multihop_dense_bge_{suffix}",
+        "hybrid": f"{prefix}multihop_hybrid_bm25_bge_rrf{FROZEN_RRF_K}_{suffix}",
         "rerank": f"{prefix}multihop_dense_bge_rerank{args.rerank_top_k}_{suffix}",
     }
     return names[stage]

@@ -44,6 +44,14 @@ Null questions are excluded from evidence metrics and retained for the later abs
 
 ## Stage 1 Gate
 
+### Preregistered out-of-sample fusion prediction
+
+Recorded before running MultiHop-RAG hybrid retrieval: the frozen test uses the same equal-weight reciprocal-rank fusion as all nine Track A gap-law cells (`rrf_k=60`, BM25 weight 1.0, BGE weight 1.0), applied to the already persisted BM25 and BGE-base top-100 rankings. No MultiHop-RAG fusion parameter is tuned.
+
+The directional, rank-ordered prediction is that **hybrid minus BGE dense on MultiHop-RAG evidence recall@5 will be larger than every hybrid-minus-dense nDCG@10 gain in the nine-cell Track A fit**. This extrapolates from MultiHop-RAG's dense-minus-BM25 evidence-recall gap of -0.1645, which is more negative than any branch gap in the fit. It does not predict a numerical delta across unlike metrics, and it does not predict that hybrid will beat BM25 outright. Context sufficiency and comparisons against BM25 are secondary outcomes; the preregistered claim is the hybrid lift over dense.
+
+Status at preregistration: not run. The result must be appended without editing the prediction above.
+
 The three completed rows use the frozen Track A BM25 configuration, `BAAI/bge-base-en-v1.5` at immutable revision `a5beb1e3e68b9ab74eb54cfd186867f64f240e1a`, and `BAAI/bge-reranker-v2-m3` at immutable revision `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. Dense search is exact normalized inner product, and the reranker reorders its top 20 while retaining the full top-100 tail. At `k=5`:
 
 | Retriever | Evidence recall@5 | Context sufficiency@5 |
