@@ -21,7 +21,9 @@ def main() -> None:
     parser.add_argument("--runs", default="results/track_a_runs.csv")
     parser.add_argument("--fusion", default="results/fusion_sweeps.csv")
     parser.add_argument("--output", default="results/fusion_winner_comparisons.csv")
-    parser.add_argument("--holm-output", default="results/fusion_winner_comparisons_holm.csv")
+    parser.add_argument(
+        "--holm-output", default="results/fusion_winner_comparisons_holm.csv"
+    )
     parser.add_argument("--metric", default="ndcg@10")
     parser.add_argument("--samples", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=13)
@@ -43,8 +45,9 @@ def main() -> None:
             seed=args.seed,
         )
         row = {
-            "comparison": "best_dense_to_best_weighted_fusion",
+            "comparison": "best_dense_to_posthoc_best_weighted_fusion",
             "dataset": dataset,
+            "selection_scope": "argmax_over_dense_weight_sweep_on_same_test_queries",
             "baseline_run_name": dense["run_name"],
             "candidate_run_name": weighted["run_name"],
             "candidate_rrf_k": weighted["rrf_k"],
@@ -75,7 +78,9 @@ def best_dense_row(rows: dict[str, dict[str, str]], dataset: str) -> dict[str, s
     return max(candidates, key=lambda row: float(row["ndcg@10"]))
 
 
-def best_weighted_fusion_row(rows: dict[str, dict[str, str]], dataset: str) -> dict[str, str]:
+def best_weighted_fusion_row(
+    rows: dict[str, dict[str, str]], dataset: str
+) -> dict[str, str]:
     candidates = [
         row
         for row in rows.values()

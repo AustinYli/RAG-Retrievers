@@ -41,14 +41,20 @@ def test_ranked_metrics_match_pytrec_eval():
     qrels = {
         "q1": {"d1": 1, "d2": 1},
         "q2": {"d3": 1},
+        "q3": {f"d{index}": 1 for index in range(10, 25)},
+        "q4": {"graded_high": 2, "graded_low": 1},
     }
     runs = {
         "q1": {"d9": 3.0, "d1": 2.0, "d2": 1.0},
         "q2": {"d3": 1.0},
+        "q3": {f"d{index}": float(25 - index) for index in range(10, 20)},
+        "q4": {"graded_low": 2.0, "graded_high": 1.0},
     }
 
     ours = evaluate(qrels, runs, cutoffs=[10])
-    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {"ndcg_cut.10", "map_cut.10", "recall.10"})
+    evaluator = pytrec_eval.RelevanceEvaluator(
+        qrels, {"ndcg_cut.10", "map_cut.10", "recall.10"}
+    )
     theirs = evaluator.evaluate(runs)
     expected = {
         "ndcg@10": sum(row["ndcg_cut_10"] for row in theirs.values()) / len(qrels),
@@ -58,3 +64,5 @@ def test_ranked_metrics_match_pytrec_eval():
 
     for metric, expected_value in expected.items():
         assert round(ours[metric], 12) == round(expected_value, 12)
+
+    assert theirs["q3"]["map_cut_10"] == 10 / 15

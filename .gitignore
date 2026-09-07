@@ -16,6 +16,8 @@ results/*
 !results/track_a_runs.csv
 !results/fusion_sweeps.csv
 !results/rerank_sweeps.csv
+!results/rerank_minilm_comparisons.csv
+!results/rerank_minilm_comparisons_holm.csv
 !results/track_a_comparisons.csv
 !results/track_a_comparisons_holm.csv
 !results/fusion_winner_comparisons.csv
@@ -23,5 +25,11 @@ results/*
 !results/rerank_bge_probe.csv
 !results/rerank_bge_probe_comparisons.csv
 !results/rerank_bge_probe_comparisons_holm.csv
+!results/rrf_k_comparisons.csv
+!results/rrf_k_comparisons_holm.csv
+!results/gap_law.csv
+!results/gap_law_summary.json
+!results/bge_model_card_crosscheck.csv
+!results/pytrec_eval_crosscheck.csv
 
 .ipynb_checkpoints/

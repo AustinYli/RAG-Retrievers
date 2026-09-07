@@ -33,14 +33,16 @@ def evaluate_per_query(
             per_query[query_id][f"ndcg@{cutoff}"] = _ndcg(rels, ranked, cutoff)
             per_query[query_id][f"recall@{cutoff}"] = _recall(rels, ranked)
             per_query[query_id][f"mrr@{cutoff}"] = _mrr(rels, ranked)
-            per_query[query_id][f"map@{cutoff}"] = _ap(rels, ranked, cutoff)
+            per_query[query_id][f"map@{cutoff}"] = _ap(rels, ranked)
     return per_query
 
 
 def _ranked_doc_ids(scores: Mapping[str, float], cutoff: int) -> list[str]:
     return [
         doc_id
-        for doc_id, _ in sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:cutoff]
+        for doc_id, _ in sorted(scores.items(), key=lambda item: (-item[1], item[0]))[
+            :cutoff
+        ]
     ]
 
 
@@ -51,8 +53,12 @@ def _ndcg(rels: Mapping[str, int], ranked: Sequence[str], cutoff: int) -> float:
         if gain > 0:
             dcg += gain / math.log2(index + 1)
 
-    ideal_gains = sorted([gain for gain in rels.values() if gain > 0], reverse=True)[:cutoff]
-    idcg = sum(gain / math.log2(index + 1) for index, gain in enumerate(ideal_gains, start=1))
+    ideal_gains = sorted([gain for gain in rels.values() if gain > 0], reverse=True)[
+        :cutoff
+    ]
+    idcg = sum(
+        gain / math.log2(index + 1) for index, gain in enumerate(ideal_gains, start=1)
+    )
     return dcg / idcg if idcg else 0.0
 
 
@@ -71,7 +77,7 @@ def _mrr(rels: Mapping[str, int], ranked: Sequence[str]) -> float:
     return 0.0
 
 
-def _ap(rels: Mapping[str, int], ranked: Sequence[str], cutoff: int) -> float:
+def _ap(rels: Mapping[str, int], ranked: Sequence[str]) -> float:
     relevant = {doc_id for doc_id, gain in rels.items() if gain > 0}
     if not relevant:
         return 0.0
@@ -81,7 +87,7 @@ def _ap(rels: Mapping[str, int], ranked: Sequence[str], cutoff: int) -> float:
         if doc_id in relevant:
             hits += 1
             precision_sum += hits / index
-    return precision_sum / min(len(relevant), cutoff)
+    return precision_sum / len(relevant)
 
 
 def _mean(values: Sequence[float]) -> float:

@@ -1,0 +1,10 @@
+dataset,dense_model,bm25_ndcg@10,dense_ndcg@10,hybrid_ndcg@10,branch_gap_dense_minus_bm25,fusion_benefit_hybrid_minus_dense
+scifact,sentence-transformers/all-MiniLM-L6-v2,0.684168,0.654084,0.722586,-0.030084,0.068502
+nfcorpus,sentence-transformers/all-MiniLM-L6-v2,0.326917,0.3105,0.350718,-0.016417,0.040218
+nfcorpus,intfloat/e5-base-v2,0.326917,0.355103,0.370993,0.028186,0.01589
+scifact,intfloat/e5-base-v2,0.684168,0.719429,0.745903,0.035261,0.026474
+nfcorpus,BAAI/bge-base-en-v1.5,0.326917,0.374376,0.375198,0.047459,0.000822
+scifact,BAAI/bge-base-en-v1.5,0.684168,0.740391,0.735986,0.056223,-0.004405
+fiqa,sentence-transformers/all-MiniLM-L6-v2,0.243986,0.36103,0.351308,0.117044,-0.009722
+fiqa,intfloat/e5-base-v2,0.243986,0.398666,0.376211,0.15468,-0.022455
+fiqa,BAAI/bge-base-en-v1.5,0.243986,0.406231,0.363923,0.162245,-0.042308

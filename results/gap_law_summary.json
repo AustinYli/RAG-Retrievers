@@ -1,0 +1,7 @@
+{
+  "num_observations": 9,
+  "ols_slope": -0.456345,
+  "pearson_r": -0.93846,
+  "scope": "Post-hoc association across 3 BEIR datasets x 3 dense models; not a validated threshold.",
+  "spearman_rho": -0.983333
+}

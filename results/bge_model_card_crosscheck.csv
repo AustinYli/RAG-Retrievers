@@ -1,0 +1,4 @@
+dataset,model,model_card_ndcg@10,harness_ndcg@10,difference,source,checked_utc
+scifact,BAAI/bge-base-en-v1.5,0.740390,0.740391,0.000001,https://huggingface.co/BAAI/bge-base-en-v1.5,2026-09-06
+nfcorpus,BAAI/bge-base-en-v1.5,0.373890,0.374376,0.000486,https://huggingface.co/BAAI/bge-base-en-v1.5,2026-09-06
+fiqa,BAAI/bge-base-en-v1.5,0.406460,0.406231,-0.000229,https://huggingface.co/BAAI/bge-base-en-v1.5,2026-09-06
