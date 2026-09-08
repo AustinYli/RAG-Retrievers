@@ -1,0 +1,14 @@
+{
+  "actual_context_sufficiency_count": 28,
+  "actual_context_sufficiency_rate": 0.16091954022988506,
+  "correct": 115,
+  "correct_rate": 0.6609195402298851,
+  "correct_without_sufficient_context": 96,
+  "generation_artifact": "results/track_b_generation_artifacts/multihop_retrieved_multihop_bm25_stem_w256_o64_ca700ad55bc75531_r1.jsonl",
+  "num_answerable_queries": 174,
+  "prompt_development_queries_excluded": 2081,
+  "wrong_despite_complete_gold_evidence": 9,
+  "wrong_despite_complete_gold_evidence_rate": 0.05172413793103448,
+  "wrong_missing_complete_gold_evidence": 50,
+  "wrong_missing_complete_gold_evidence_rate": 0.28735632183908044
+}

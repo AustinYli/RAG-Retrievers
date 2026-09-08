@@ -57,16 +57,27 @@ Evidence:
 {context}
 
 Question: {question}"""
+CLOSED_BOOK_PROMPT_TEMPLATE = """Answer this multi-hop question from your own knowledge.
+For yes/no, comparison, and consistency questions, make the requested comparison and
+answer Yes or No. If you do not know, answer "Insufficient information."
+Return exactly two lines:
+Answer: <the concise answer>
+Claim: <one complete sentence of at most 25 words that explicitly states and supports that answer>
+
+Question: {question}"""
 CONTEXT_BUILDER_VERSION = "oracle-facts-metadata-retrieved-ranked-chunks-v1"
 RETRIEVED_CONTEXT_BUILDER_VERSION = (
     "retrieved-ranked-chunks-balanced-total-word-budget-v3"
 )
 GREEDY_CONTEXT_BUILDER_VERSION = "retrieved-ranked-chunks-greedy-total-word-budget-v1"
+CLOSED_BOOK_CONTEXT_BUILDER_VERSION = "closed-book-no-context-v1"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a pinned local Track B generation pass.")
-    parser.add_argument("--mode", choices=["oracle", "retrieved"], required=True)
+    parser.add_argument(
+        "--mode", choices=["oracle", "retrieved", "closed_book"], required=True
+    )
     parser.add_argument("--model", default="qwen2.5:7b-instruct-q4_K_M")
     parser.add_argument("--retriever-run-name")
     parser.add_argument("--retrieval-runs", default="results/track_b_stage1.csv")
@@ -207,21 +218,24 @@ def main() -> None:
     model_details = model_metadata.get("details", {})
     runtime_platform = platform.platform()
     runtime_python = platform.python_version()
-    template = PROMPT_TEMPLATE.replace(
-        "{abstention_instruction}",
-        ABSTENTION_INSTRUCTION_ON if args.abstention_instruction == "on" else "",
-    )
+    if args.mode == "closed_book":
+        template = CLOSED_BOOK_PROMPT_TEMPLATE
+    else:
+        template = PROMPT_TEMPLATE.replace(
+            "{abstention_instruction}",
+            ABSTENTION_INSTRUCTION_ON if args.abstention_instruction == "on" else "",
+        )
     experiment = {
         "mode": args.mode,
-        "retriever_run_id": retriever_row["run_id"] if retriever_row else "oracle",
-        "retriever_run_name": args.retriever_run_name or "oracle",
+        "retriever_run_id": retriever_row["run_id"] if retriever_row else args.mode,
+        "retriever_run_name": args.retriever_run_name or args.mode,
         "retriever_config_sha256": (
-            retriever_row["config_sha256"] if retriever_row else "oracle"
+            retriever_row["config_sha256"] if retriever_row else args.mode
         ),
         "retriever_artifact_sha256": (
             file_sha256(Path(retriever_row["run_artifact_path"]))
             if retriever_row
-            else "oracle"
+            else args.mode
         ),
         "retrieved_top_k": args.retrieved_top_k if args.mode == "retrieved" else "",
         "max_context_words": args.max_context_words if args.mode == "retrieved" else "",
@@ -236,12 +250,16 @@ def main() -> None:
         "seed": args.seed,
         "context_window": args.context_window,
         "max_new_tokens": args.max_new_tokens,
-        "abstention_instruction": args.abstention_instruction,
+        "abstention_instruction": (
+            args.abstention_instruction if args.mode != "closed_book" else "closed_book"
+        ),
         "prompt_sha256": prompt_hash(template),
         "answer_normalizer_version": ANSWER_NORMALIZER_VERSION,
         "response_parser_version": RESPONSE_PARSER_VERSION,
         "context_builder_version": (
-            (
+            CLOSED_BOOK_CONTEXT_BUILDER_VERSION
+            if args.mode == "closed_book"
+            else (
                 GREEDY_CONTEXT_BUILDER_VERSION
                 if args.context_packing == "greedy"
                 else RETRIEVED_CONTEXT_BUILDER_VERSION
@@ -481,6 +499,8 @@ def build_context(
     evidence_position: str,
     context_packing: str = "balanced",
 ) -> tuple[str, list[str]]:
+    if mode == "closed_book":
+        return "", []
     if mode == "oracle":
         evidence = dataset.evidence[query_id]
         blocks = [oracle_block(dataset.corpus[item.doc_id], item) for item in evidence]

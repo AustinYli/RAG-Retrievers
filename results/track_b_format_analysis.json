@@ -1,0 +1,50 @@
+{
+  "interpretation": "Malformed responses retain fallback predictions and are not automatically scored as zero. Conditional metrics are descriptive, not causal estimates.",
+  "runs": {
+    "bm25_sample200": {
+      "answerable_exact_match_all": 0.6609195402298851,
+      "answerable_exact_match_malformed": 0.5714285714285714,
+      "answerable_exact_match_well_formed": 0.66875,
+      "answerable_malformed_count": 14,
+      "answerable_malformed_wrong_count": 6,
+      "answerable_token_f1_all": 0.6647509578544061,
+      "answerable_token_f1_malformed": 0.5714285714285714,
+      "answerable_token_f1_well_formed": 0.6729166666666667,
+      "answerable_wrong_count": 59,
+      "fraction_of_answerable_errors_with_malformed_format": 0.1016949152542373,
+      "generation_artifact": "results/track_b_generation_artifacts/multihop_retrieved_multihop_bm25_stem_w256_o64_ca700ad55bc75531_r1.jsonl",
+      "malformed_reason_counts_answerable": {
+        "claim_over_word_limit": 14
+      },
+      "num_answerable_queries": 174,
+      "num_null_queries": 26,
+      "num_queries": 200,
+      "response_format_valid_rate_all": 0.885,
+      "response_format_valid_rate_answerable": 0.9195402298850575,
+      "response_format_valid_rate_null": 0.6538461538461539
+    },
+    "oracle": {
+      "answerable_exact_match_all": 0.7955257270693512,
+      "answerable_exact_match_malformed": 0.7209302325581395,
+      "answerable_exact_match_well_formed": 0.7969890510948905,
+      "answerable_malformed_count": 43,
+      "answerable_malformed_wrong_count": 12,
+      "answerable_token_f1_all": 0.8033755903554561,
+      "answerable_token_f1_malformed": 0.7209302325581395,
+      "answerable_token_f1_well_formed": 0.804992903487429,
+      "answerable_wrong_count": 457,
+      "fraction_of_answerable_errors_with_malformed_format": 0.0262582056892779,
+      "generation_artifact": "results/track_b_generation_artifacts/multihop_oracle_oracle_c192839a5fad7e8d_r1.jsonl",
+      "malformed_reason_counts_answerable": {
+        "claim_over_word_limit": 40,
+        "extra_or_blank_lines": 3
+      },
+      "num_answerable_queries": 2235,
+      "num_null_queries": 0,
+      "num_queries": 2235,
+      "response_format_valid_rate_all": 0.9807606263982103,
+      "response_format_valid_rate_answerable": 0.9807606263982103,
+      "response_format_valid_rate_null": null
+    }
+  }
+}

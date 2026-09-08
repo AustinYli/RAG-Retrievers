@@ -99,6 +99,74 @@ Ollama returned impossible component-duration fields on 45 of 2,235 responses ev
 
 The initial 20-question development probe was superseded by three repeats on a versioned SHA-256 sample of 200 held-out retrieved-context queries: 174 answerable and 26 null. Every prediction string was identical across repeats. Answerable EM was 0.6609 in every run, token F1 was 0.6648 in every run, and both observed ranges were 0.000. This is now a gate on the same BM25 long-context and answerable/null distribution used by E1, though it remains specific to the pinned model, runtime, and machine.
 
+### Existing-artifact reanalysis and preflight controls
+
+Response-format failure does **not** explain the oracle-to-BM25 accuracy gap. The
+retrieved sample's aggregate validity of 0.885 includes null questions; among its
+174 answerable questions, validity is 0.9195. Malformed responses retain a parsed
+fallback answer and are not assigned zero automatically. Their EM is 0.5714,
+compared with 0.6688 among well-formed responses. All 14 malformed answerable
+responses merely exceeded the 25-word claim limit: eight were correct and six were
+wrong. They account for only 6 of 59 answer errors (10.2%). Oracle EM conditional
+on valid format is 0.7970 versus 0.7209 for its 43 malformed responses. These are
+descriptive conditional rates rather than a causal estimate, but they reject the
+proposed parser-loss explanation. The reproducible decomposition is
+`results/track_b_format_analysis.json`.
+
+On the same 174 answerable BM25 queries, the actual rendered context contains all
+annotated evidence for 28 questions (0.1609). Of the 59 wrong answers, 50 (84.7%)
+lack complete annotated evidence and 9 (15.3%) are wrong despite complete
+evidence. Conversely, 96 correct answers occur without complete annotated
+evidence, confirming that context sufficiency is a strict attribution diagnostic,
+not an accuracy ceiling. The saved-context analysis is in
+`results/track_b_failure_attribution_bm25_sample200.json`.
+
+A no-context control on the identical 200-query ID set reaches 0.2069 EM/F1 on
+the 174 answerable questions, versus BM25's 0.6609 EM and 0.6648 F1. Closed-book
+inference EM is 0.000; its nonzero aggregate is concentrated in binary comparison
+and temporal answers. Retrieved context therefore adds substantial answer signal,
+and E1 is not rendered uninformative by model knowledge of the 2023 news corpus.
+The closed-book prompt has no evidence section and explicitly permits model
+knowledge, distinguishing this control from forced abstention with an empty
+evidence field.
+
+The matched 200-query E1 pilot is complete under Ollama 0.33.3:
+
+| Retrieved context | EM | Token F1 |
+| --- | ---: | ---: |
+| BM25 top 5 | 0.6609 | 0.6648 |
+| BGE dense top 5 | 0.6322 | 0.6442 |
+| BGE dense + BGE reranker@20 top 5 | 0.6897 | 0.6951 |
+
+None of the aggregate paired differences is resolved at this sample size. Dense
+minus BM25 is -0.0287 EM with 95% CI [-0.0977, +0.0402]; reranker minus dense is
++0.0575 [-0.0115, +0.1264]; and reranker minus BM25 is +0.0287
+[-0.0402, +0.0920]. No comparison among the predeclared aggregate and
+question-type EM/F1 family survives Holm correction. The apparent type effects
+are hypotheses, not findings: reranking raises inference EM by 0.1273 while
+lowering temporal EM by 0.0816 relative to dense.
+
+Exact-match discordance is 22.4% for BM25 versus dense, 20.7% for dense versus
+reranker, and 19.0% for BM25 versus reranker. A McNemar normal approximation
+using the pilot effect sizes estimates that the dense-to-reranker comparison
+needs about 490 answerable queries for 80% power at two-sided alpha 0.05, or 960
+at the conservative first threshold 0.05/24. Both are below the 2,235 available
+answerable questions. The corresponding estimates for the smaller BM25-to-dense
+effect are 2,129 and 4,168. These are exploratory planning values, not guaranteed
+power. The paired results and calculation are persisted under
+`results/track_b_generation_sample200_*`.
+
+The pinned NLI scorer has been run over 2,214 non-abstaining oracle claims and 158
+answerable claims from one deterministic BM25 repeat. At threshold 0.5 it labels
+0.6865 of oracle claims and 0.8734 of BM25 claims unsupported. This is **not a
+faithfulness result**: even the gold-evidence oracle rate fails a basic
+face-validity check, and composite multi-hop claims can require several evidence
+blocks while the current scorer tests each block separately. The complete
+threshold curves are retained in `results/track_b_faithfulness_oracle_full.json`
+and `results/track_b_faithfulness_bm25_sample200.json`; no rate is quotable until
+the frozen 50-claim human calibration establishes an acceptable Cohen's kappa or
+motivates a revised premise construction.
+
 ## Chunking Experiment
 
 E5 exposes three segmentation strategies behind total cache and run keys: fixed whitespace-word windows, paragraph-aware structural packing, and adjacent-sentence semantic breaks from the pinned BGE-base encoder. Semantic boundaries are persisted as a hash-verified chunk artifact and are never silently recomputed during generation.

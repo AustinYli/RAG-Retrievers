@@ -2,12 +2,31 @@ from types import SimpleNamespace
 
 from rag_bench.multihop import Evidence
 from scripts.run_track_b_generation import (
+    CLOSED_BOOK_PROMPT_TEMPLATE,
     balanced_word_allocations,
     build_context,
     duration_components_are_valid,
     greedy_context,
     position_evidence_chunks,
 )
+
+
+def test_closed_book_mode_has_no_context_and_explicitly_allows_model_knowledge():
+    context, context_ids = build_context(
+        mode="closed_book",
+        query_id="q1",
+        dataset=SimpleNamespace(),
+        chunks={},
+        ranked_runs={},
+        top_k=5,
+        max_context_words=1280,
+        evidence_position="natural",
+    )
+
+    assert context == ""
+    assert context_ids == []
+    assert "own knowledge" in CLOSED_BOOK_PROMPT_TEMPLATE
+    assert "Evidence:" not in CLOSED_BOOK_PROMPT_TEMPLATE
 
 
 def test_position_variants_hold_the_retrieved_set_fixed():

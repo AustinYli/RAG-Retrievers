@@ -43,6 +43,9 @@ results/*
 !results/track_b_generation_runs.csv
 !results/track_b_generation_comparisons.csv
 !results/track_b_generation_comparisons_holm.csv
+!results/track_b_generation_sample200_comparisons.csv
+!results/track_b_generation_sample200_comparisons_holm.csv
+!results/track_b_generation_sample200_power.json
 !results/track_b_abstention_comparisons.csv
 !results/track_b_abstention_comparisons_holm.csv
 !results/track_b_position_comparisons.csv
@@ -51,6 +54,7 @@ results/*
 !results/track_b_chunking_comparisons.csv
 !results/track_b_chunking_comparisons_holm.csv
 !results/track_b_determinism.json
+!results/track_b_format_analysis.json
 !results/track_b_failure_attribution.json
 !results/track_b_failure_attribution_*.json
 !results/track_b_faithfulness_summary.json
@@ -58,3 +62,5 @@ results/*
 !results/track_b_faithfulness_calibration.csv
 
 .ipynb_checkpoints/
+tmp/
+output/

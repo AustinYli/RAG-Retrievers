@@ -206,6 +206,39 @@ The first 20 answerable questions are a frozen prompt-development slice because 
 
 The completed held-out oracle gate is 0.7955 EM and 0.8034 token F1. Three temperature-zero repeats on a stable 200-query held-out BM25-context sample produced identical prediction strings (0.000 answerable EM/F1 range), so no run averaging is required by the measured determinism gate. Oracle p50/p95 latency is 1.812/2.606 seconds per sequential local request. The summary flags and excludes 45 impossible Ollama component-duration ledgers while retaining every well-formed total request duration.
 
+Reanalyze response-format failures and attribute errors from the saved 200-query
+BM25 artifact without generating again:
+
+```bash
+python scripts/analyze_track_b_format.py \
+  oracle=results/track_b_generation_artifacts/<oracle>.jsonl \
+  bm25_sample200=results/track_b_generation_artifacts/<bm25-repeat>.jsonl
+python scripts/analyze_track_b_generation.py \
+  --generation-artifact results/track_b_generation_artifacts/<bm25-repeat>.jsonl \
+  --allow-partial \
+  --output results/track_b_failure_attribution_bm25_sample200.json
+```
+
+Malformed outputs do not cause the oracle-to-BM25 gap: answerable malformed BM25
+responses score 0.5714 EM and contribute only 6 of 59 errors. Among those 59
+errors, 50 lack complete annotated evidence in the actual prompt and 9 remain
+wrong despite complete evidence. A true no-context control on the same hashed
+sample reaches only 0.2069 EM/F1, versus BM25's 0.6609/0.6648, so model memory
+does not make the retrieved-context experiment uninformative:
+
+```bash
+python scripts/run_track_b_generation.py \
+  --mode closed_book --evaluation-sample-size 200 --repeat 1
+```
+
+The matched 200-query E1 pilot scores 0.6609 EM for BM25, 0.6322 for BGE dense,
+and 0.6897 for BGE dense plus the BGE reranker. All aggregate intervals cross
+zero and none of the 24 aggregate/type EM/F1 comparisons survives Holm
+correction, so this pilot does not select a winner. Its 19-22% paired discordance
+does support the full run: the observed dense-to-reranker effect requires roughly
+960 answerable queries for 80% power at the conservative 0.05/24 threshold,
+below the 2,235 available.
+
 After generating with BM25, dense, and dense plus reranker, compare the exact
 generation run names. The comparator reports aggregate, comparison, inference,
 and temporal results as one 24-test Holm-corrected family:
@@ -264,7 +297,12 @@ python scripts/sample_faithfulness_calibration.py \
 The calibration CSV deliberately omits the NLI score and includes the question,
 claim, and full context needed to assign each `human_supported` label. Do not
 quote a headline faithfulness rate until those 50 labels and Cohen's kappa are
-present.
+present. The first uncalibrated pass reports 0.6865 unsupported oracle claims
+and 0.8734 unsupported BM25 claims at threshold 0.5. Those are diagnostic values,
+not findings: the oracle rate fails a face-validity check, and the current
+single-block premise construction cannot directly support composite claims that
+join facts across blocks. The persisted threshold curves make that failure
+auditable while calibration remains open.
 
 Retrieved generation defaults to five 256-word chunks and a strict 1,280-word rendered-context budget that includes block labels and retrieval metadata. Body words are allocated across the fixed chunk set independently of display order. For chunking experiments, raise `--retrieved-top-k` while keeping `--max-context-words 1280`; for position sensitivity, repeat the same run with `--evidence-position first`, `middle`, and `last`.
 

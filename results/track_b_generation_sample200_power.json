@@ -1,0 +1,43 @@
+{
+  "comparisons": [
+    {
+      "comparison": "bm25_to_dense",
+      "discordance_rate": 0.22413793103448276,
+      "discordant_count": 39,
+      "estimated_n_80pct_power_alpha_0.05": 2129,
+      "estimated_n_80pct_power_conservative_family_alpha": 4168,
+      "left_only_correct": 22,
+      "num_queries": 174,
+      "observed_em_delta": -0.028735632183908046,
+      "right_only_correct": 17
+    },
+    {
+      "comparison": "dense_to_reranker",
+      "discordance_rate": 0.20689655172413793,
+      "discordant_count": 36,
+      "estimated_n_80pct_power_alpha_0.05": 490,
+      "estimated_n_80pct_power_conservative_family_alpha": 960,
+      "left_only_correct": 13,
+      "num_queries": 174,
+      "observed_em_delta": 0.05747126436781609,
+      "right_only_correct": 23
+    },
+    {
+      "comparison": "bm25_to_reranker",
+      "discordance_rate": 0.1896551724137931,
+      "discordant_count": 33,
+      "estimated_n_80pct_power_alpha_0.05": 1801,
+      "estimated_n_80pct_power_conservative_family_alpha": 3526,
+      "left_only_correct": 14,
+      "num_queries": 174,
+      "observed_em_delta": 0.028735632183908046,
+      "right_only_correct": 19
+    }
+  ],
+  "conservative_family_alpha": 0.0020833333333333333,
+  "family_size": 24,
+  "method": "mcnemar_normal_approximation_from_pilot_discordance",
+  "scope": "Exploratory planning estimate using observed pilot effect sizes; not a confirmatory result or guaranteed achieved power.",
+  "target_power": 0.8,
+  "two_sided_alpha": 0.05
+}
