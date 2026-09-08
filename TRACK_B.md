@@ -52,19 +52,28 @@ The directional, rank-ordered prediction is that **hybrid minus BGE dense on Mul
 
 Status at preregistration: not run. The result must be appended without editing the prediction above.
 
-The three completed rows use the frozen Track A BM25 configuration, `BAAI/bge-base-en-v1.5` at immutable revision `a5beb1e3e68b9ab74eb54cfd186867f64f240e1a`, and `BAAI/bge-reranker-v2-m3` at immutable revision `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. Dense search is exact normalized inner product, and the reranker reorders its top 20 while retaining the full top-100 tail. At `k=5`:
+**Result appended after execution:** confirmed. Frozen fusion raises evidence recall@5 from 0.3062 to 0.4060, a +0.0998 paired lift with a 10,000-sample 95% bootstrap interval of [+0.0900, +0.1098]. That exceeds the largest hybrid-minus-dense gain among the nine Track A cells (0.0685), while respecting the preregistered caveat that the Track A values use nDCG@10. Context sufficiency@5 rises from 0.0625 to 0.1259 (+0.0634 [+0.0519, +0.0749]). Both survive Holm correction in the four-test prediction family. Hybrid remains below BM25 by 0.0647 evidence recall and 0.0572 context sufficiency, also significant.
+
+The four completed rows use the frozen Track A BM25 configuration, `BAAI/bge-base-en-v1.5` at immutable revision `a5beb1e3e68b9ab74eb54cfd186867f64f240e1a`, and `BAAI/bge-reranker-v2-m3` at immutable revision `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. Dense search is exact normalized inner product, frozen hybrid uses equal-weight RRF at `k=60`, and the reranker reorders the dense top 20 while retaining the full top-100 tail. At `k=5`:
 
 | Retriever | Evidence recall@5 | Context sufficiency@5 |
 | --- | ---: | ---: |
 | BM25 | 0.4707 | 0.1831 |
 | BGE-base dense | 0.3062 | 0.0625 |
+| Frozen BM25 + BGE RRF | 0.4060 | 0.1259 |
 | BGE-base dense + BGE reranker@20 | 0.4345 | 0.1494 |
 
 The reranker recovers `+0.1283` evidence recall@5 over dense, with a paired 10,000-sample 95% bootstrap interval of `[+0.1172, +0.1396]`. It also recovers `+0.0869` context sufficiency@5, with `[+0.0736, +0.1007]`. Both survive Holm correction across the six planned Stage 1 tests.
 
 It does not overtake BM25. Reranked dense remains `-0.0362` behind BM25 on evidence recall@5 (`[-0.0489, -0.0237]`) and `-0.0337` behind on context sufficiency@5 (`[-0.0497, -0.0182]`). The planned expectation that dense must beat sparse therefore does not hold for either the base dense model or its reranked top 20 on this benchmark.
 
-This is not attributed to a loader error: URL and fact mappings are complete, metadata is indexed, the [BGE query instruction](https://huggingface.co/BAAI/bge-base-en-v1.5) is present, embeddings are normalized, search is exact, and an independent implementation reproduces official-style Hits@10 for all three artifacts. The dataset strongly favors lexical source routing: 2,242 of 2,255 answerable questions name at least one gold publisher, and 2,091 name every gold publisher. BM25's advantage also appears independently in comparison, inference, and temporal questions. MultiHop-RAG's paper tested `bge-large-en-v1.5`, not the frozen `bge-base-en-v1.5`, and did not report a BM25 comparison. The brief's ordering assumption is therefore treated as falsified for this frozen grid, with the discrepancy disclosed rather than relabeled as a software defect.
+### Cross-benchmark sparse/dense reversal
+
+The central Stage 1 result is not a loader caveat: the same frozen BGE-base model and harness occupy opposite extremes on two corpora. On FiQA, BGE dense beats BM25 by 0.1622 nDCG@10; on MultiHop-RAG, it trails BM25 by 0.1645 evidence recall@5. The metrics differ, so their magnitudes are not directly equated, but the winner reverses decisively.
+
+MultiHop-RAG exposes the mechanism unusually clearly. Of 2,255 answerable questions, 2,242 name at least one gold publisher and 2,091 name every gold publisher. Those literal source names act as routing keys for BM25. This demonstrates that sparse-versus-dense performance is a property of the query/corpus relationship, not a universal model ordering. The confirmed fusion prediction is consistent with the same mechanism: combining branches strongly repairs dense retrieval, but the lexical branch remains best outright.
+
+The reversal survives the loader checks: URL and fact mappings are complete, metadata is indexed, the [BGE query instruction](https://huggingface.co/BAAI/bge-base-en-v1.5) is present, embeddings are normalized, search is exact, and an independent implementation reproduces official-style Hits@10 for all four artifacts. BM25's advantage also appears independently in comparison, inference, and temporal questions. MultiHop-RAG's paper tested `bge-large-en-v1.5`, not the frozen `bge-base-en-v1.5`, and did not report a BM25 comparison.
 
 On this Apple Silicon machine, measured p50 search latency was 14.6 ms/query for BM25 and 8.8 ms/query for dense. Reranking was 2,263 ms/query using cross-query batch-amortized timing, so it is not a serving-latency measurement and is not directly interchangeable with the sequential base timings. The complete rows, per-query artifacts, comparisons, and Holm-adjusted results are persisted under `results/track_b_stage1*`.
 
@@ -73,6 +82,8 @@ On this Apple Silicon machine, measured p50 search latency was 14.6 ms/query for
 1. Oracle context: run answerable questions with annotated facts directly. If EM/F1 is poor, change the fixed generator before retrieval comparisons.
 2. Determinism: repeat one frozen configuration three times. Report the spread before interpreting retriever deltas.
 3. Retrieved context: vary only BM25, BGE-base dense, and BGE-base plus reranker. Use the same top-5 chunks, prompt, generator, temperature, seed, and context window.
+
+E1 reports aggregate EM/F1 and the same paired deltas separately for comparison, inference, and temporal questions. These 24 predeclared tests form one Holm-corrected family, preventing the 29-point oracle spread across question types from being hidden by an aggregate alone.
 
 Correctness uses frozen SQuAD-style exact match and token F1 over a concise `Answer:` field. The same frozen response contract requests a complete `Claim:` that explicitly states the answer, because an entity fragment alone is not a valid NLI hypothesis; malformed responses are preserved and flagged. Abstention always reports both null-query abstention and answerable false abstention. Faithfulness uses the [DeBERTa-v3-base NLI cross-encoder](https://huggingface.co/cross-encoder/nli-deberta-v3-base) with a threshold curve; each claim is scored against each context block and receives the maximum entailment probability, avoiding silent truncation of later chunks. A headline unsupported-claim rate requires agreement against 50 hand labels, reported with Cohen's kappa.
 
@@ -86,7 +97,7 @@ The definitive held-out oracle gate reached **0.7955 EM and 0.8034 token F1** on
 
 Ollama returned impossible component-duration fields on 45 of 2,235 responses even though each total request duration remained well formed. Raw values remain in the artifact; component sums exclude those rows and the summary records a 0.9799 component-ledger validity rate. Total request latency uses all rows.
 
-The temperature-zero determinism gate produced identical predictions in three repeats over the frozen 20-question development slice: EM was 0.850 in every run, token F1 was 0.883 in every run, and exact prediction agreement was 1.000. The observed run-level noise floor is therefore zero on this probe, not a guarantee that every platform or larger sample is deterministic.
+The initial 20-question development probe was superseded by three repeats on a versioned SHA-256 sample of 200 held-out retrieved-context queries: 174 answerable and 26 null. Every prediction string was identical across repeats. Answerable EM was 0.6609 in every run, token F1 was 0.6648 in every run, and both observed ranges were 0.000. This is now a gate on the same BM25 long-context and answerable/null distribution used by E1, though it remains specific to the pinned model, runtime, and machine.
 
 ## Chunking Experiment
 

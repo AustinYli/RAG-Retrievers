@@ -167,6 +167,8 @@ python scripts/analyze_track_b_retrieval.py
 
 The corpus contains full news articles, so Track B uses deterministic 256-word chunks with 64-word overlap and indexes `title`, `source`, and `published_at` alongside every chunk. It reports both source-document recall and stricter evidence-fact recall; `context_sufficiency@k` is one only when every annotated fact is present in the selected chunks. This is complete gold-evidence coverage, not an unconditional accuracy ceiling, because annotations may not enumerate every usable support path.
 
+MultiHop-RAG produces the opposite sparse/dense ordering from FiQA: BGE-base beats BM25 by 0.1622 nDCG@10 on FiQA but trails it by 0.1645 evidence recall@5 here. Almost every answerable MultiHop-RAG question names a gold publisher, exposing literal routing keys that favor lexical retrieval. A preregistered out-of-sample test of the Track A gap law was confirmed: frozen equal-weight `rrf_k=60` fusion lifts dense evidence recall@5 by 0.0998 `[0.0900, 0.1098]`, larger than all nine prior fusion lifts, while still remaining below BM25.
+
 Install the pinned local generator and run the oracle-context gate before any retrieved-context generation:
 
 ```bash
@@ -174,18 +176,25 @@ ollama pull qwen2.5:7b-instruct-q4_K_M
 python scripts/run_track_b_generation.py --mode oracle --max-queries 20
 ```
 
-Once the full oracle gate passes, run three repeats on the frozen 20-question
-development slice for the determinism check, then vary only the retrieval run:
+Once the full oracle gate passes, run three repeats on the same stable 200-query
+held-out distribution used by retrieved-context evaluation, then vary only the
+retrieval run:
 
 ```bash
-python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 1
-python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 2
-python scripts/run_track_b_generation.py --mode oracle --max-queries 20 --repeat 3
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --evaluation-sample-size 200 --repeat 1
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --evaluation-sample-size 200 --repeat 2
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --evaluation-sample-size 200 --repeat 3
 
 python scripts/analyze_track_b_determinism.py \
-  results/track_b_smoke_generation_artifacts/<repeat-1>.jsonl \
-  results/track_b_smoke_generation_artifacts/<repeat-2>.jsonl \
-  results/track_b_smoke_generation_artifacts/<repeat-3>.jsonl \
+  results/track_b_generation_artifacts/<repeat-1>.jsonl \
+  results/track_b_generation_artifacts/<repeat-2>.jsonl \
+  results/track_b_generation_artifacts/<repeat-3>.jsonl \
   --output results/track_b_determinism.json
 
 python scripts/run_track_b_generation.py \
@@ -195,10 +204,11 @@ python scripts/run_track_b_generation.py \
 
 The first 20 answerable questions are a frozen prompt-development slice because their raw outputs were inspected while fixing the response contract. Full generation runs exclude those IDs from their artifacts and record both the ID-set hash and evaluation-partition version; headline generation metrics therefore use 2,235 held-out answerable questions.
 
-The completed held-out oracle gate is 0.7955 EM and 0.8034 token F1. Three temperature-zero repeats on the frozen development slice produced identical predictions (0.000 EM/F1 range), so no run averaging is required by the measured determinism gate. Oracle p50/p95 latency is 1.812/2.606 seconds per sequential local request. The summary flags and excludes 45 impossible Ollama component-duration ledgers while retaining every well-formed total request duration.
+The completed held-out oracle gate is 0.7955 EM and 0.8034 token F1. Three temperature-zero repeats on a stable 200-query held-out BM25-context sample produced identical prediction strings (0.000 answerable EM/F1 range), so no run averaging is required by the measured determinism gate. Oracle p50/p95 latency is 1.812/2.606 seconds per sequential local request. The summary flags and excludes 45 impossible Ollama component-duration ledgers while retaining every well-formed total request duration.
 
 After generating with BM25, dense, and dense plus reranker, compare the exact
-generation run names as one Holm-corrected family:
+generation run names. The comparator reports aggregate, comparison, inference,
+and temporal results as one 24-test Holm-corrected family:
 
 ```bash
 python scripts/compare_track_b_generation.py \

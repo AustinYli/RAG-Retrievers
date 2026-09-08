@@ -14,6 +14,14 @@ from rag_bench.compare import compare_metric_values
 from scripts.adjust_comparisons import adjust_comparisons
 
 
+QUESTION_STRATA = (
+    "all_answerable",
+    "comparison_query",
+    "inference_query",
+    "temporal_query",
+)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Compare three Track B generation runs with paired bootstrap intervals."
@@ -49,33 +57,39 @@ def main() -> None:
     ]
 
     rows: list[dict[str, Any]] = []
-    for metric in [item.strip() for item in args.metrics.split(",") if item.strip()]:
-        for comparison_name, baseline, candidate in pairs:
-            baseline_values = read_answerable_metric(
-                Path(baseline["per_query_metrics_path"]), metric
-            )
-            candidate_values = read_answerable_metric(
-                Path(candidate["per_query_metrics_path"]), metric
-            )
-            result = compare_metric_values(
-                baseline_values,
-                candidate_values,
-                metric=metric,
-                samples=args.samples,
-                seed=args.seed,
-            )
-            rows.append(
-                {
-                    "comparison": comparison_name,
-                    "baseline_run_name": baseline["run_name"],
-                    "candidate_run_name": candidate["run_name"],
-                    "baseline_run_id": baseline["run_key"],
-                    "candidate_run_id": candidate["run_key"],
-                    "baseline_path": baseline["per_query_metrics_path"],
-                    "candidate_path": candidate["per_query_metrics_path"],
-                    **result,
-                }
-            )
+    for question_stratum in QUESTION_STRATA:
+        for metric in [item.strip() for item in args.metrics.split(",") if item.strip()]:
+            for comparison_name, baseline, candidate in pairs:
+                baseline_values = read_answerable_metric(
+                    Path(baseline["per_query_metrics_path"]),
+                    metric,
+                    question_stratum=question_stratum,
+                )
+                candidate_values = read_answerable_metric(
+                    Path(candidate["per_query_metrics_path"]),
+                    metric,
+                    question_stratum=question_stratum,
+                )
+                result = compare_metric_values(
+                    baseline_values,
+                    candidate_values,
+                    metric=metric,
+                    samples=args.samples,
+                    seed=args.seed,
+                )
+                rows.append(
+                    {
+                        "question_stratum": question_stratum,
+                        "comparison": comparison_name,
+                        "baseline_run_name": baseline["run_name"],
+                        "candidate_run_name": candidate["run_name"],
+                        "baseline_run_id": baseline["run_key"],
+                        "candidate_run_id": candidate["run_key"],
+                        "baseline_path": baseline["per_query_metrics_path"],
+                        "candidate_path": candidate["per_query_metrics_path"],
+                        **result,
+                    }
+                )
 
     write_rows(Path(args.output), rows)
     adjust_comparisons(Path(args.output), Path(args.holm_output))
@@ -136,7 +150,11 @@ def validate_generation_controls(rows: list[dict[str, str]]) -> None:
         )
 
 
-def read_answerable_metric(path: Path, metric: str) -> dict[str, float]:
+def read_answerable_metric(
+    path: Path, metric: str, question_stratum: str = "all_answerable"
+) -> dict[str, float]:
+    if question_stratum not in QUESTION_STRATA:
+        raise ValueError(f"Unknown question stratum: {question_stratum}")
     with path.open("r", newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         if reader.fieldnames is None or metric not in reader.fieldnames:
@@ -145,6 +163,10 @@ def read_answerable_metric(path: Path, metric: str) -> dict[str, float]:
             row["query_id"]: float(row[metric])
             for row in reader
             if row["question_type"] != "null_query"
+            and (
+                question_stratum == "all_answerable"
+                or row["question_type"] == question_stratum
+            )
         }
 
 

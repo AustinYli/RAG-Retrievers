@@ -16,17 +16,49 @@ def main() -> None:
     metadata_paths = [metadata_path_for(Path(path)) for path in args.artifacts]
     metadata = [json.loads(path.read_text(encoding="utf-8")) for path in metadata_paths]
     validate_determinism_metadata(metadata)
+    result = summarize_determinism(runs)
+    result.update(
+        {
+            "artifacts": args.artifacts,
+            "metadata_artifacts": [str(path) for path in metadata_paths],
+        }
+    )
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+
+def summarize_determinism(runs: list[dict[str, dict]]) -> dict:
     query_sets = [set(run) for run in runs]
     if not all(query_ids == query_sets[0] for query_ids in query_sets[1:]):
         raise ValueError("Determinism runs must contain identical query IDs.")
     query_ids = sorted(query_sets[0])
-    em = [mean(float(run[qid]["exact_match"]) for qid in query_ids) for run in runs]
-    f1 = [mean(float(run[qid]["token_f1"]) for qid in query_ids) for run in runs]
+    answerable_ids = [
+        query_id
+        for query_id in query_ids
+        if runs[0][query_id]["question_type"] != "null_query"
+    ]
+    if not answerable_ids:
+        raise ValueError("Determinism analysis requires answerable questions for EM/F1.")
+    em = [
+        mean(float(run[qid]["exact_match"]) for qid in answerable_ids)
+        for run in runs
+    ]
+    f1 = [
+        mean(float(run[qid]["token_f1"]) for qid in answerable_ids)
+        for run in runs
+    ]
     prediction_agreement = mean(
         len({run[qid]["prediction"] for run in runs}) == 1 for qid in query_ids
     )
-    result = {
+    return {
         "num_queries": len(query_ids),
+        "num_answerable_queries": len(answerable_ids),
+        "num_null_queries": len(query_ids) - len(answerable_ids),
         "exact_match_by_run": em,
         "exact_match_mean": mean(em),
         "exact_match_population_stddev": pstdev(em),
@@ -36,16 +68,7 @@ def main() -> None:
         "token_f1_population_stddev": pstdev(f1),
         "token_f1_range": max(f1) - min(f1),
         "exact_prediction_agreement_rate": prediction_agreement,
-        "artifacts": args.artifacts,
-        "metadata_artifacts": [str(path) for path in metadata_paths],
     }
-    if args.output:
-        output_path = Path(args.output)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(
-            json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 def read_jsonl(path: Path) -> dict[str, dict]:

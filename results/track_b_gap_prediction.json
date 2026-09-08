@@ -1,0 +1,17 @@
+{
+  "comparability_caveat": "This is a directional rank-order test across different metrics; it is not a transferred point estimate.",
+  "frozen_bm25_weight": 1.0,
+  "frozen_dense_weight": 1.0,
+  "frozen_rrf_k": 60,
+  "preregistered_claim": "MultiHop-RAG hybrid-minus-dense evidence recall@5 ranks above all nine Track A hybrid-minus-dense nDCG@10 gains.",
+  "ranked_largest_fusion_benefit": true,
+  "status": "confirmed",
+  "track_a_largest_hybrid_minus_dense": 0.068502,
+  "track_a_metric": "nDCG@10",
+  "track_a_observation_count": 9,
+  "track_b_ci_high": 0.10983,
+  "track_b_ci_low": 0.090022,
+  "track_b_dense_minus_bm25": -0.164487,
+  "track_b_hybrid_minus_dense": 0.099815,
+  "track_b_metric": "evidence_recall@5"
+}

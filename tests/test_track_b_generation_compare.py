@@ -1,6 +1,9 @@
 import pytest
 
-from scripts.compare_track_b_generation import validate_generation_controls
+from scripts.compare_track_b_generation import (
+    read_answerable_metric,
+    validate_generation_controls,
+)
 
 
 def run_row(retriever: str) -> dict[str, str]:
@@ -55,3 +58,24 @@ def test_generation_comparison_rejects_mixed_context_packing():
 
     with pytest.raises(ValueError, match="context_packing"):
         validate_generation_controls(rows)
+
+
+def test_generation_metrics_can_be_stratified_by_question_type(tmp_path):
+    path = tmp_path / "per_query.csv"
+    path.write_text(
+        "query_id,question_type,exact_match\n"
+        "q1,comparison_query,1\n"
+        "q2,inference_query,0\n"
+        "q3,temporal_query,1\n"
+        "q4,null_query,1\n",
+        encoding="utf-8",
+    )
+
+    assert read_answerable_metric(path, "exact_match") == {
+        "q1": 1.0,
+        "q2": 0.0,
+        "q3": 1.0,
+    }
+    assert read_answerable_metric(
+        path, "exact_match", "temporal_query"
+    ) == {"q3": 1.0}
