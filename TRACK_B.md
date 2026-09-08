@@ -167,6 +167,44 @@ and `results/track_b_faithfulness_bm25_sample200.json`; no rate is quotable unti
 the frozen 50-claim human calibration establishes an acceptable Cohen's kappa or
 motivates a revised premise construction.
 
+## G1 Context-Depth Sweep
+
+### Preregistered design and prediction
+
+Recorded before any G1 answer generation: G1 fixes the retriever at the frozen
+`multihop_bm25_stem_w256_o64` run and varies retrieved depth together with the
+rendered-context budget. The exact arms are k=3/768 words, k=5/1,280 words,
+k=10/2,560 words, and k=20/5,120 words. The first budget is the exact value behind
+the approximate 770-word design. Every arm uses balanced packing, the same
+SHA-256 sample of 300 evaluation questions at seed 13, temperature zero, natural
+evidence order, the fixed abstention instruction, and the same pinned generator,
+prompt, parser, 8,192-token context window, and 96-token output cap.
+
+The primary mechanism prediction is directional: k=10 and k=20 will increase
+actual rendered-context sufficiency relative to k=5 because 50 of 59 errors in
+the earlier BM25 sample lacked complete annotated evidence. Answer EM should
+increase if missing evidence is causal, but may plateau or fall if added context
+creates enough distraction; k=3 is expected to reduce sufficiency and not improve
+EM. Because k and word budget move together, G1 estimates the practical effect of
+"more retrieved context," not separate causal effects for depth and budget.
+
+All results are paired and stratified over all answerable, comparison, inference,
+and temporal questions. The 24 EM/F1 tests form a generation-outcome Holm family;
+the 24 evidence-recall/context-sufficiency tests form a separate mechanism Holm
+family. Splitting the families is preregistered because the latter measures the
+retriever/context pathway rather than generated-answer quality. Raw argmax is not
+treated as an unbiased test estimate.
+
+The 300 questions are a generation-development slice. Any depth selected by G1
+must be confirmed on the remaining evaluation questions using
+`--exclude-evaluation-sample-size 300 --exclude-evaluation-sample-seed 13`.
+This reconstructs and physically excludes the G1 IDs before a full E1 run. The
+previous k=5 artifact contains only 200 questions, so it cannot serve as the paired
+G1 baseline; all four 300-query arms must run.
+
+Status at preregistration: not run. Results must be appended without editing the
+design or predictions above.
+
 ## Chunking Experiment
 
 E5 exposes three segmentation strategies behind total cache and run keys: fixed whitespace-word windows, paragraph-aware structural packing, and adjacent-sentence semantic breaks from the pinned BGE-base encoder. Semantic boundaries are persisted as a hash-verified chunk artifact and are never silently recomputed during generation.

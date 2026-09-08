@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from rag_bench.generation import stable_query_sample
 from rag_bench.multihop import Evidence
 from scripts.run_track_b_generation import (
     CLOSED_BOOK_PROMPT_TEMPLATE,
@@ -122,3 +123,16 @@ def test_impossible_ollama_component_durations_are_rejected():
 
     assert duration_components_are_valid(valid)
     assert not duration_components_are_valid({**valid, "eval_duration_ns": 70})
+
+
+def test_stable_sample_can_be_reconstructed_for_physical_exclusion():
+    query_ids = [f"q{index}" for index in range(20)]
+    development_ids = stable_query_sample(query_ids, size=5, seed=13)
+    development_set = set(development_ids)
+    confirmatory_ids = [
+        query_id for query_id in query_ids if query_id not in development_set
+    ]
+
+    assert len(development_ids) == 5
+    assert len(confirmatory_ids) == 15
+    assert development_set.isdisjoint(confirmatory_ids)

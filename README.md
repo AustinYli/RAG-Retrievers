@@ -283,6 +283,32 @@ python scripts/compare_track_b_abstention.py \
 versioned SHA-256 sampler, and records the seed and selected-ID hash. The full E1
 retriever comparison does not use it.
 
+Run the preregistered G1 context-depth sweep on one paired 300-query development
+sample. The depth and total rendered-context budget increase together:
+
+```bash
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --retrieved-top-k 3 --max-context-words 768 --evaluation-sample-size 300
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --retrieved-top-k 5 --max-context-words 1280 --evaluation-sample-size 300
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --retrieved-top-k 10 --max-context-words 2560 --evaluation-sample-size 300
+python scripts/run_track_b_generation.py --mode retrieved \
+  --retriever-run-name multihop_bm25_stem_w256_o64 \
+  --retrieved-top-k 20 --max-context-words 5120 --evaluation-sample-size 300
+
+python scripts/compare_track_b_depths.py \
+  --ordered-run-names <k3-run>,<k5-run>,<k10-run>,<k20-run>
+```
+
+The comparator reports actual evidence present in each saved prompt alongside EM
+and F1, with separate 24-test Holm families for answer quality and evidence
+coverage. Confirmatory full E1 runs must exclude the depth-selection sample with
+`--exclude-evaluation-sample-size 300 --exclude-evaluation-sample-seed 13`.
+
 Generation artifacts include the exact rendered context and its hash, answer, prompt hash, context-builder and response-parser versions, upstream retrieval artifact hash, model tag and digest, quantization, runtime, seed, temperature, context window, 96-token output cap, EM/F1, and abstention decision. The NLI scorer emits a threshold sensitivity curve and accepts a hand-labeled calibration CSV:
 
 ```bash

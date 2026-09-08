@@ -108,6 +108,15 @@ def main() -> None:
     parser.add_argument("--max-queries", type=int)
     parser.add_argument("--evaluation-sample-size", type=int)
     parser.add_argument("--evaluation-sample-seed", type=int, default=13)
+    parser.add_argument(
+        "--exclude-evaluation-sample-size",
+        type=int,
+        help=(
+            "Exclude a stable hash sample before generation. Use this to keep a "
+            "development sweep physically separate from confirmatory evaluation."
+        ),
+    )
+    parser.add_argument("--exclude-evaluation-sample-seed", type=int, default=13)
     args = parser.parse_args()
 
     positive_values = {
@@ -124,8 +133,19 @@ def main() -> None:
         parser.error("--max-queries must be positive.")
     if args.evaluation_sample_size is not None and args.evaluation_sample_size <= 0:
         parser.error("--evaluation-sample-size must be positive.")
+    if (
+        args.exclude_evaluation_sample_size is not None
+        and args.exclude_evaluation_sample_size <= 0
+    ):
+        parser.error("--exclude-evaluation-sample-size must be positive.")
     if args.max_queries is not None and args.evaluation_sample_size is not None:
         parser.error("--max-queries and --evaluation-sample-size are mutually exclusive.")
+    if args.max_queries is not None and args.exclude_evaluation_sample_size is not None:
+        parser.error(
+            "--max-queries and --exclude-evaluation-sample-size are mutually exclusive."
+        )
+    if args.mode != "retrieved" and args.exclude_evaluation_sample_size is not None:
+        parser.error("Evaluation-sample exclusion is supported only in retrieved mode.")
 
     if args.max_queries is not None:
         if args.results == "results/track_b_generation_runs.csv":
@@ -173,19 +193,33 @@ def main() -> None:
     prompt_development_ids = dataset.answerable_query_ids[
         :PROMPT_DEVELOPMENT_QUERY_COUNT
     ]
+    excluded_evaluation_ids: list[str] = []
     if args.max_queries is not None:
         query_ids = candidate_query_ids[: args.max_queries]
         evaluation_partition_version = "development-smoke-included-v1"
         prompt_development_excluded = 0
     else:
         prompt_development_set = set(prompt_development_ids)
-        query_ids = [
+        evaluation_query_ids = [
             query_id
             for query_id in candidate_query_ids
             if query_id not in prompt_development_set
         ]
         evaluation_partition_version = EVALUATION_PARTITION_VERSION
         prompt_development_excluded = len(prompt_development_ids)
+        if args.exclude_evaluation_sample_size is not None:
+            excluded_evaluation_ids = stable_query_sample(
+                evaluation_query_ids,
+                size=args.exclude_evaluation_sample_size,
+                seed=args.exclude_evaluation_sample_seed,
+            )
+            excluded_set = set(excluded_evaluation_ids)
+            evaluation_query_ids = [
+                query_id
+                for query_id in evaluation_query_ids
+                if query_id not in excluded_set
+            ]
+        query_ids = evaluation_query_ids
         if args.evaluation_sample_size is not None:
             query_ids = stable_query_sample(
                 query_ids,
@@ -199,6 +233,12 @@ def main() -> None:
         query_scope = (
             f"evaluation_hash_sample_{args.evaluation_sample_size}_"
             f"seed_{args.evaluation_sample_seed}"
+        )
+    elif args.exclude_evaluation_sample_size is not None:
+        query_scope = (
+            "evaluation_excluding_prompt_development_and_hash_sample_"
+            f"{args.exclude_evaluation_sample_size}_"
+            f"seed_{args.exclude_evaluation_sample_seed}"
         )
     else:
         query_scope = (
@@ -291,6 +331,17 @@ def main() -> None:
                 "evaluation_sample_size": args.evaluation_sample_size,
                 "evaluation_sample_seed": args.evaluation_sample_seed,
                 "evaluation_sampler_version": EVALUATION_SAMPLER_VERSION,
+            }
+        )
+    if args.exclude_evaluation_sample_size is not None:
+        experiment.update(
+            {
+                "excluded_evaluation_sample_size": args.exclude_evaluation_sample_size,
+                "excluded_evaluation_sample_seed": args.exclude_evaluation_sample_seed,
+                "excluded_evaluation_sample_ids_sha256": hashlib.sha256(
+                    "\n".join(excluded_evaluation_ids).encode("utf-8")
+                ).hexdigest(),
+                "excluded_evaluation_sampler_version": EVALUATION_SAMPLER_VERSION,
             }
         )
     if args.mode == "retrieved":
