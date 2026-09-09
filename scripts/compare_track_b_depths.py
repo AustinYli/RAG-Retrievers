@@ -110,6 +110,8 @@ def validate_depth_controls(rows: list[dict[str, str]]) -> None:
         raise ValueError("G1 requires the same 300-query evaluation sample.")
     if any(row.get("evaluation_sample_seed") != "13" for row in rows):
         raise ValueError("G1 requires evaluation sample seed 13.")
+    if any(row.get("context_window") != "16384" for row in rows):
+        raise ValueError("Amended G1 requires a 16,384-token context window.")
     if any(row.get("context_packing") != "balanced" for row in rows):
         raise ValueError("G1 requires balanced context packing.")
     if any(

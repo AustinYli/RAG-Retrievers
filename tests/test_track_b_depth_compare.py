@@ -20,6 +20,7 @@ def run_row(depth: int, budget: int) -> dict[str, str]:
         "retriever_run_name": "multihop_bm25_stem_w256_o64",
         "evaluation_sample_size": "300",
         "evaluation_sample_seed": "13",
+        "context_window": "16384",
         "retriever_run_id": "bm25-id",
         "selected_query_ids_sha256": "sample",
     }
@@ -49,6 +50,19 @@ def test_depth_comparison_rejects_wrong_budget():
     ]
 
     with pytest.raises(ValueError, match="context budgets"):
+        validate_depth_controls(rows)
+
+
+def test_depth_comparison_rejects_truncating_context_window():
+    rows = [
+        run_row(3, 768),
+        run_row(5, 1280),
+        run_row(10, 2560),
+        run_row(20, 5120),
+    ]
+    rows[3]["context_window"] = "8192"
+
+    with pytest.raises(ValueError, match="16,384"):
         validate_depth_controls(rows)
 
 

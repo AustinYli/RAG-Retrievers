@@ -205,6 +205,20 @@ G1 baseline; all four 300-query arms must run.
 Status at preregistration: not run. Results must be appended without editing the
 design or predictions above.
 
+**Feasibility amendment recorded before any amended run:** the original k=3,
+k=5, and k=10 arms completed at the preregistered 8,192-token window. Before
+starting k=20, a token-ledger probe used `mhq-0376`, the largest observed k=10
+prompt. Its evaluated prompt count fell non-monotonically from 4,554 tokens at
+k=10 to 4,098 at k=20, proving that Ollama had truncated the 5,120-word prompt.
+The identical k=20 prompt evaluated to 8,953 tokens with a 16,384-token window.
+
+The context window is therefore amended to 16,384 for **all four** G1 arms. The
+three completed 8,192-window arms are retained for audit but excluded from G1;
+rerunning every arm keeps the model configuration fixed. This amendment is based
+only on prompt-token accounting, before a k=20 result or any formal G1 comparison.
+The depths, word budgets, sample, predictions, and correction families above do
+not change.
+
 ## Chunking Experiment
 
 E5 exposes three segmentation strategies behind total cache and run keys: fixed whitespace-word windows, paragraph-aware structural packing, and adjacent-sentence semantic breaks from the pinned BGE-base encoder. Semantic boundaries are persisted as a hash-verified chunk artifact and are never silently recomputed during generation.
