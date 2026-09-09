@@ -5,6 +5,8 @@ import pytest
 
 from rag_bench.multihop import Evidence
 from scripts.compare_track_b_depths import (
+    build_knee_rows,
+    build_transition_rows,
     evaluate_depth_artifact,
     validate_depth_controls,
     values_for_stratum,
@@ -122,3 +124,55 @@ def test_depth_metrics_use_actual_rendered_context_and_stratify(tmp_path):
     assert values_for_stratum(values["exact_match"], dataset, "inference_query") == {
         "q1": 1.0
     }
+
+
+def test_knee_rows_are_explicitly_exploratory():
+    rows = [
+        {"run_name": f"k{k}", "run_key": str(k), "artifact_path": f"k{k}.jsonl"}
+        for k in (3, 5, 10, 20)
+    ]
+    metrics = {
+        "exact_match": {"q1": 1.0},
+        "token_f1": {"q1": 1.0},
+        "evidence_recall_at_budget": {"q1": 1.0},
+        "context_sufficiency_at_budget": {"q1": 1.0},
+    }
+    per_run = [metrics, metrics, metrics, metrics]
+    dataset = SimpleNamespace(question_types={"q1": "inference_query"})
+
+    output = build_knee_rows(rows, per_run, dataset, samples=10, seed=13)
+
+    assert len(output) == 4
+    assert {row["comparison"] for row in output} == {"k10_to_k20"}
+    assert {row["analysis_status"] for row in output} == {
+        "exploratory_not_in_preregistered_holm_families"
+    }
+
+
+def test_transition_rows_capture_new_evidence_and_answer_flips():
+    rows = [{"run_key": str(k)} for k in (3, 5, 10, 20)]
+
+    def metrics(em: tuple[float, float], sufficient: tuple[float, float]):
+        return {
+            "exact_match": {"q1": em[0], "q2": em[1]},
+            "context_sufficiency_at_budget": {
+                "q1": sufficient[0],
+                "q2": sufficient[1],
+            },
+        }
+
+    per_run = [
+        metrics((0, 1), (0, 0)),
+        metrics((1, 1), (1, 0)),
+        metrics((1, 0), (1, 1)),
+        metrics((1, 0), (1, 1)),
+    ]
+
+    output = build_transition_rows(rows, per_run)
+
+    assert output[0]["correctness_gains"] == 1
+    assert output[0]["newly_sufficient_queries"] == 1
+    assert output[0]["newly_sufficient_em_before"] == 0
+    assert output[0]["newly_sufficient_em_after"] == 1
+    assert output[1]["correctness_losses"] == 1
+    assert output[1]["lost_sufficient_queries"] == 0

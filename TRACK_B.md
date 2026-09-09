@@ -219,6 +219,56 @@ only on prompt-token accounting, before a k=20 result or any formal G1 compariso
 The depths, word budgets, sample, predictions, and correction families above do
 not change.
 
+### Result appended after execution
+
+The amended four-arm sweep completed on the same 300-query hash sample: 264
+answerable questions and 36 null questions. Prompt-token counts are monotonic and
+untruncated under the amended window, rising from a maximum of 1,657 tokens at
+k=3 to 8,953 at k=20; no response reached the 96-token output cap.
+
+| k | Rendered budget | Evidence recall | Context sufficiency | EM | Token F1 | p50 latency |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 3 | 768 words | 0.3494 | 0.1061 | 0.6326 | 0.6402 | 5.04 s |
+| 5 | 1,280 words | 0.4495 | 0.1818 | 0.6742 | 0.6793 | 6.67 s |
+| 10 | 2,560 words | 0.5893 | 0.2992 | **0.7500** | **0.7566** | 14.36 s |
+| 20 | 5,120 words | **0.7263** | **0.4545** | 0.7424 | 0.7509 | 29.23 s |
+
+The preregistered mechanism prediction is confirmed. Relative to k=5, k=10
+raises evidence recall by 0.1398 with a paired 95% interval of
+`[+0.1139, +0.1660]` and context sufficiency by 0.1174
+`[+0.0795, +0.1591]`. At k=20, the corresponding gains are 0.2768
+`[+0.2431, +0.3112]` and 0.2727 `[+0.2197, +0.3258]`. All four survive the
+24-test mechanism Holm family; 23 of 24 mechanism tests survive overall.
+
+k=10 also raises answer quality over k=5: EM increases by 0.0758
+`[+0.0341, +0.1212]` and token F1 by 0.0773 `[+0.0341, +0.1212]`. These are
+the only two of 24 generation-outcome tests that survive Holm correction
+(`p_holm < 0.005` at 10,000-resample resolution). All three question types move
+up descriptively, with the largest EM gain on temporal questions (+0.0986), but
+no type-specific answer test survives the family correction.
+
+More context stops helping answers after k=10 even though retrieval continues to
+improve. The exploratory k=10-to-k=20 contrast is -0.0076 EM
+`[-0.0530, +0.0379]` and -0.0057 F1 `[-0.0500, +0.0383]`, while context
+sufficiency rises another 0.1553 `[+0.1136, +0.2008]`. Among 41 questions that
+newly acquire complete evidence at k=20, EM moves from 0.7317 to 0.7073. This is
+evidence-availability/answer-accuracy decoupling, not retrieval saturation.
+
+Two secondary diagnostics point the same way. Overall response-format validity
+falls from 0.9233 at k=10 to 0.8533 at k=20, but format failure does not cause the
+answer plateau: the 27 malformed answerable k=20 responses score 0.8519 EM versus
+0.7300 among well-formed responses, and the parser preserves their extracted
+answers rather than assigning zero. Null-query abstention also falls from 0.8333
+to 0.7500, reducing abstention separation from 0.8220 to 0.7462. These rates are
+descriptive and were not part of the two confirmatory G1 families.
+
+k=10 is the development-slice selection for confirmatory E1: it is the shallowest
+arm with a family-wise significant answer gain, while k=20 offers no detectable
+answer improvement and doubles p50 latency. This is not yet a held-out E1 result;
+confirmation must exclude the 300 G1 IDs as specified above. The complete summary,
+two preregistered families, and explicitly exploratory knee contrast are persisted
+under `results/track_b_depth_*`.
+
 ## Chunking Experiment
 
 E5 exposes three segmentation strategies behind total cache and run keys: fixed whitespace-word windows, paragraph-aware structural packing, and adjacent-sentence semantic breaks from the pinned BGE-base encoder. Semantic boundaries are persisted as a hash-verified chunk artifact and are never silently recomputed during generation.

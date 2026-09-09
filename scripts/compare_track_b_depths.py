@@ -57,6 +57,15 @@ def main() -> None:
         "--mechanism-holm-output",
         default="results/track_b_depth_mechanism_comparisons_holm.csv",
     )
+    parser.add_argument(
+        "--knee-output",
+        default="results/track_b_depth_knee_exploratory.csv",
+        help="Exploratory aggregate k=10 to k=20 comparison, outside Holm families.",
+    )
+    parser.add_argument(
+        "--transitions-output",
+        default="results/track_b_depth_transitions.csv",
+    )
     args = parser.parse_args()
 
     run_names = [item.strip() for item in args.ordered_run_names.split(",") if item.strip()]
@@ -81,10 +90,14 @@ def main() -> None:
     mechanism_rows = build_comparison_rows(
         selected, per_run, dataset, MECHANISM_METRICS, args.samples, args.seed
     )
+    knee_rows = build_knee_rows(selected, per_run, dataset, args.samples, args.seed)
+    transition_rows = build_transition_rows(selected, per_run)
 
     write_rows(Path(args.summary_output), summary_rows)
     write_rows(Path(args.generation_output), generation_rows)
     write_rows(Path(args.mechanism_output), mechanism_rows)
+    write_rows(Path(args.knee_output), knee_rows)
+    write_rows(Path(args.transitions_output), transition_rows)
     adjust_comparisons(
         Path(args.generation_output), Path(args.generation_holm_output)
     )
@@ -234,8 +247,58 @@ def build_summary_rows(
                     "prompt_eval_tokens_mean": row.get("prompt_eval_tokens_mean", ""),
                     "query_latency_p50_ms": row.get("query_latency_p50_ms", ""),
                     "query_latency_p95_ms": row.get("query_latency_p95_ms", ""),
+                    "response_format_valid_rate": row.get(
+                        "response_format_valid_rate", ""
+                    ),
+                    "answerable_false_abstention_rate": row.get(
+                        "answerable_false_abstention_rate", ""
+                    ),
+                    "null_abstention_rate": row.get("null_abstention_rate", ""),
+                    "abstention_separation": row.get("abstention_separation", ""),
+                    "output_cap_hit_rate": row.get("output_cap_hit_rate", ""),
                 }
             )
+    return output
+
+
+def build_knee_rows(
+    rows: list[dict[str, str]],
+    per_run: list[dict[str, dict[str, float]]],
+    dataset,
+    samples: int,
+    seed: int,
+) -> list[dict[str, Any]]:
+    baseline_index = DEPTHS.index(10)
+    candidate_index = DEPTHS.index(20)
+    output: list[dict[str, Any]] = []
+    for metric in (*GENERATION_METRICS, *MECHANISM_METRICS):
+        baseline_values = values_for_stratum(
+            per_run[baseline_index][metric], dataset, "all_answerable"
+        )
+        candidate_values = values_for_stratum(
+            per_run[candidate_index][metric], dataset, "all_answerable"
+        )
+        result = compare_metric_values(
+            baseline_values,
+            candidate_values,
+            metric=metric,
+            samples=samples,
+            seed=seed,
+        )
+        output.append(
+            {
+                "analysis_status": "exploratory_not_in_preregistered_holm_families",
+                "question_stratum": "all_answerable",
+                "comparison": "k10_to_k20",
+                "baseline_run_name": rows[baseline_index]["run_name"],
+                "candidate_run_name": rows[candidate_index]["run_name"],
+                "baseline_run_id": rows[baseline_index]["run_key"],
+                "candidate_run_id": rows[candidate_index]["run_key"],
+                "baseline_path": rows[baseline_index]["artifact_path"],
+                "candidate_path": rows[candidate_index]["artifact_path"],
+                **result,
+            }
+        )
     return output
 
 
@@ -280,6 +343,77 @@ def build_comparison_rows(
                         **result,
                     }
                 )
+    return output
+
+
+def build_transition_rows(
+    rows: list[dict[str, str]],
+    per_run: list[dict[str, dict[str, float]]],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    for baseline_index, candidate_index in ((0, 1), (1, 2), (2, 3)):
+        baseline_em = per_run[baseline_index]["exact_match"]
+        candidate_em = per_run[candidate_index]["exact_match"]
+        baseline_sufficiency = per_run[baseline_index][
+            "context_sufficiency_at_budget"
+        ]
+        candidate_sufficiency = per_run[candidate_index][
+            "context_sufficiency_at_budget"
+        ]
+        query_ids = sorted(baseline_em)
+        if not (
+            set(query_ids)
+            == set(candidate_em)
+            == set(baseline_sufficiency)
+            == set(candidate_sufficiency)
+        ):
+            raise ValueError("Depth-transition analysis requires identical query IDs.")
+        newly_sufficient = [
+            query_id
+            for query_id in query_ids
+            if not baseline_sufficiency[query_id]
+            and candidate_sufficiency[query_id]
+        ]
+        lost_sufficiency = [
+            query_id
+            for query_id in query_ids
+            if baseline_sufficiency[query_id]
+            and not candidate_sufficiency[query_id]
+        ]
+        output.append(
+            {
+                "comparison": f"k{DEPTHS[baseline_index]}_to_k{DEPTHS[candidate_index]}",
+                "baseline_run_id": rows[baseline_index]["run_key"],
+                "candidate_run_id": rows[candidate_index]["run_key"],
+                "num_answerable_queries": len(query_ids),
+                "correctness_gains": sum(
+                    int(
+                        not bool(baseline_em[query_id])
+                        and bool(candidate_em[query_id])
+                    )
+                    for query_id in query_ids
+                ),
+                "correctness_losses": sum(
+                    int(
+                        bool(baseline_em[query_id])
+                        and not bool(candidate_em[query_id])
+                    )
+                    for query_id in query_ids
+                ),
+                "newly_sufficient_queries": len(newly_sufficient),
+                "lost_sufficient_queries": len(lost_sufficiency),
+                "newly_sufficient_em_before": (
+                    mean(baseline_em[query_id] for query_id in newly_sufficient)
+                    if newly_sufficient
+                    else ""
+                ),
+                "newly_sufficient_em_after": (
+                    mean(candidate_em[query_id] for query_id in newly_sufficient)
+                    if newly_sufficient
+                    else ""
+                ),
+            }
+        )
     return output
 
 

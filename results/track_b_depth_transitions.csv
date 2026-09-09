@@ -1,0 +1,4 @@
+comparison,baseline_run_id,candidate_run_id,num_answerable_queries,correctness_gains,correctness_losses,newly_sufficient_queries,lost_sufficient_queries,newly_sufficient_em_before,newly_sufficient_em_after
+k3_to_k5,516585dfd67cfbef,a4b860a2ee05c65a,264,21,10,20,0,0.55,0.7
+k5_to_k10,a4b860a2ee05c65a,ca933dcf4ef4de39,264,28,8,31,0,0.5483870967741935,0.7741935483870968
+k10_to_k20,ca933dcf4ef4de39,46c879463b5148b0,264,17,19,41,0,0.7317073170731707,0.7073170731707317

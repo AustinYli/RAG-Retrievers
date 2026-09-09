@@ -58,6 +58,8 @@ results/*
 !results/track_b_depth_generation_comparisons_holm.csv
 !results/track_b_depth_mechanism_comparisons.csv
 !results/track_b_depth_mechanism_comparisons_holm.csv
+!results/track_b_depth_knee_exploratory.csv
+!results/track_b_depth_transitions.csv
 !results/track_b_determinism.json
 !results/track_b_format_analysis.json
 !results/track_b_failure_attribution.json

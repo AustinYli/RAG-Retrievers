@@ -315,6 +315,13 @@ coverage. Confirmatory full E1 runs must exclude the depth-selection sample with
 The 16,384-token window is an amendment made after an 8,192-token feasibility
 probe exposed silent truncation at k=20; all four compared arms use the amendment.
 
+G1 selects k=10 for held-out confirmation. On 264 answerable questions, EM rises
+from 0.6742 at k=5 to 0.7500 at k=10, a paired +0.0758
+`[0.0341, 0.1212]` that survives the 24-test answer-quality Holm family. k=20
+raises context sufficiency further from 0.2992 to 0.4545 but does not improve EM
+over k=10 (-0.0076 `[-0.0530, 0.0379]`) and doubles p50 latency from 14.36 to
+29.23 seconds. This is a development-slice selection, not a final E1 estimate.
+
 Generation artifacts include the exact rendered context and its hash, answer, prompt hash, context-builder and response-parser versions, upstream retrieval artifact hash, model tag and digest, quantization, runtime, seed, temperature, context window, 96-token output cap, EM/F1, and abstention decision. The NLI scorer emits a threshold sensitivity curve and accepts a hand-labeled calibration CSV:
 
 ```bash
